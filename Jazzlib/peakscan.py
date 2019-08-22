@@ -1,0 +1,1432 @@
+
+from .countreads import *
+from .cEM_zip import *
+from .FRegion import *
+from multiprocessing import Pool
+from .Peak import *
+from .sta import *
+from .region import *
+
+
+class KeyboardInterruptError(Exception):
+
+    pass
+
+
+def peakscan_control(localmax, datafile, inputfile, maxinsert, windowscare, gloablumbda, ratio,
+                     bayesfactorthreshold, nthreads, inputfregion, chipfregion, jobtype):
+
+    pool = Pool(nthreads)
+
+    try:
+
+        pars = list()
+
+        for chromosome in localmax:
+
+            # print (chromosome)
+
+            partmp = dict()
+
+            chrlength = inputfregion.chrs_length[chromosome]
+
+            for localmaxsite in localmax[chromosome]:
+
+                scarenow = int(localmaxsite/windowscare)
+
+                if scarenow in partmp:
+
+                    partmp[scarenow].append(localmaxsite)
+
+                else:
+
+                    partmp[scarenow] = list()
+
+                    partmp[scarenow].append(localmaxsite)
+
+            # print(chrlength, partmp)
+
+            for scarenow in partmp:
+
+                par = dict()
+
+                par['inputfile'] = inputfile
+
+                par['datafile'] = datafile
+
+                par['chromosome'] = chromosome
+
+                par['chrlength'] = chrlength
+
+                par['maxinsert'] = maxinsert
+
+                par['jobtype'] = jobtype
+
+                par['bayesfactorthreshold'] = bayesfactorthreshold
+
+                par['gloablumbda'] = gloablumbda
+
+                par['ratio'] = ratio
+
+                par['lumbdamaxth'] = (inputfregion.region_mean + 10*inputfregion.region_std)/maxinsert
+
+                nowstart = scarenow * windowscare + 1
+
+                nowend = (scarenow + 1) * windowscare
+
+                if nowend > chrlength:
+
+                    nowend = chrlength
+
+                par['regionstart'] = nowstart
+
+                par['regionend'] = nowend
+
+                par['localmaxlist'] = partmp[scarenow]
+
+                pars.append(par)
+
+                # print (par)
+
+        # peakinthreads = pool.map(peakscan_worker,pars)
+
+        peakinthreads = pool.map(peakscan_worker2, pars)
+
+        peaks = list()
+
+        for peakth in peakinthreads:
+
+            for peaknow in peakth:
+
+                peaks.append(peaknow)
+
+        pool.close()
+
+        return peaks
+
+    except KeyboardInterrupt:
+
+        pool.terminate()
+
+        print ("You cancelled the program!")
+
+        sys.exit(1)
+
+    except Exception as e:
+
+        print(('got exception in Jazzlib.peakscan.peakscan_control: %r, terminating the pool' % (e,)))
+
+        pool.terminate()
+
+        print ('pool is terminated')
+
+    finally:
+        #     print ('joining pool processes')
+        pool.join()
+            # print ('join complete')
+
+
+def peakscan_withoutcontrol(localmax, file, maxinsert, windowscare, gloablumbda, ratio,
+                           bayesfactorthreshold, nthreads, fregion, jobtype):
+
+    pool = Pool(nthreads)
+
+    try:
+
+        pars = list()
+
+        for chromosome in localmax:
+
+            # print (chromosome)
+
+            partmp = dict()
+
+            chrlength = fregion.chrs_length[chromosome]
+
+            for localmaxsite in localmax[chromosome]:
+
+                scarenow = int(localmaxsite/windowscare)
+
+                if scarenow in partmp:
+
+                    partmp[scarenow].append(localmaxsite)
+
+                else:
+
+                    partmp[scarenow] = list()
+
+                    partmp[scarenow].append(localmaxsite)
+
+            # print(chrlength, partmp)
+
+            for scarenow in partmp:
+
+                par = dict()
+
+                par['inputfile'] = file
+
+                par['datafile'] = file
+
+                par['chromosome'] = chromosome
+
+                par['chrlength'] = chrlength
+
+                par['maxinsert'] = maxinsert
+
+                par['jobtype'] = jobtype
+
+                par['bayesfactorthreshold'] = bayesfactorthreshold
+
+                par['gloablumbda'] = gloablumbda
+
+                par['ratio'] = ratio
+
+                par['lumbdamaxth'] = 400
+
+                nowstart = scarenow * windowscare + 1
+
+                nowend = (scarenow + 1) * windowscare
+
+                if nowend > chrlength:
+
+                    nowend = chrlength
+
+                par['regionstart'] = nowstart
+
+                par['regionend'] = nowend
+
+                par['localmaxlist'] = partmp[scarenow]
+
+                pars.append(par)
+
+                # print (par)
+
+        peakinthreads = pool.map(peakscan_worker_withoutcontrol2, pars)
+
+        peaks = list()
+
+        for peakth in peakinthreads:
+
+            for peaknow in peakth:
+
+                peaks.append(peaknow)
+
+        pool.close()
+
+        return peaks
+
+    except KeyboardInterrupt:
+
+        pool.terminate()
+
+        print ("You cancelled the program!")
+
+        sys.exit(1)
+
+    except Exception as e:
+
+        print(('got exception in Jazzlib.peakscan.peakscan_withoutcontrol: %r, terminating the pool' % (e,)))
+
+        pool.terminate()
+
+        print ('pool is terminated')
+
+    finally:
+        #     print ('joining pool processes')
+        pool.join()
+            # print ('join complete')
+
+
+def peakscan_worker(par):
+
+    try:
+
+        returnpeaks = list()
+
+        chromosome = par['chromosome']
+
+        chrlength = par['chrlength']
+
+        start = par['regionstart']
+
+        end = par['regionend']
+
+        localmaxlist = par['localmaxlist']
+
+        jobtype = par['jobtype']
+
+        maxinsert = par['maxinsert']
+
+        inputfile = par['inputfile']
+
+        datafile = par['datafile']
+
+        gloablumbda = par['gloablumbda']
+
+        bayesfactorthreshold = par['bayesfactorthreshold']
+
+        ratio = par['ratio']
+
+        regionstart = start - 10000
+
+        regionend = end + 10000
+
+        if regionstart < 1:
+
+            regionstart = 1
+
+        if regionend > chrlength:
+
+            regionend = chrlength
+
+        inputcount = midsitecount(bamfile=inputfile, regionchromosome=chromosome, regionstart=regionstart,
+                                  regionend=regionend, maxinsert=maxinsert, jobtype=jobtype)
+
+        datacount = midsitecount(bamfile=datafile, regionchromosome=chromosome, regionstart=regionstart,
+                                  regionend=regionend, maxinsert=maxinsert, jobtype=jobtype)
+
+        testsite = dict()
+
+        # print (inputcount)
+
+        """
+            pre-filter site
+        """
+        for site in localmaxlist:
+
+            for wsite in range(int(site-maxinsert/2), int(site+maxinsert/2)):
+
+                if wsite in datacount:
+
+                    nowcount = int(datacount[wsite]/ratio)
+
+                    if nowcount < 1:
+
+                        continue
+
+                    if nowcount < gloablumbda:
+
+                        continue
+
+                    nowbayesfactor = bayesfactor(locallambda=gloablumbda, peakscore=nowcount)
+
+                    if nowbayesfactor > bayesfactorthreshold:
+
+                        if site in testsite:
+
+                            testsite[site].append(wsite)
+
+                        else:
+
+                            testsite[site] = list()
+
+                            testsite[site].append(wsite)
+
+        enrichedsite = dict()
+
+        for countsite in testsite:
+
+            inputwindow4timemaxinsert = list()
+
+            inputwindow1k = list()
+
+            inputwindow5k = list()
+
+            inputwindow10k = list()
+
+            for inow in range(0-2*maxinsert, 2*maxinsert):
+
+                nowsite = countsite + inow
+
+                nowcount = 0
+
+                if nowsite < 1:
+
+                    continue
+
+                if nowsite > chrlength:
+
+                    continue
+
+                if nowsite in inputcount:
+
+                    nowcount = inputcount[nowsite]
+
+                inputwindow4timemaxinsert.append(nowcount)
+
+            for inow in range(-500, 500):
+
+                nowsite = countsite + inow
+
+                nowcount = 0
+
+                if nowsite < 1:
+
+                    continue
+
+                if nowsite > chrlength:
+
+                    continue
+
+                if nowsite in inputcount:
+
+                    nowcount = inputcount[nowsite]
+
+                inputwindow1k.append(nowcount)
+
+
+            for inow in range(-2500,2500):
+
+                nowsite = countsite + inow
+
+                nowcount = 0
+
+                if nowsite < 1:
+
+                    continue
+
+                if nowsite > chrlength:
+
+                    continue
+
+                if nowsite in inputcount:
+
+                    nowcount = inputcount[nowsite]
+
+                inputwindow5k.append(nowcount)
+
+            for inow in range(-5000,5000):
+
+                nowsite = countsite + inow
+
+                nowcount = 0
+
+                if nowsite < 1:
+
+                    continue
+
+                if nowsite > chrlength:
+
+                    continue
+
+                if nowsite in inputcount:
+
+                    nowcount = inputcount[nowsite]
+
+                inputwindow10k.append(nowcount)
+
+            (window4maxlhat, window4maxphat) = cEM_zip(inputwindow4timemaxinsert)
+
+            (window1klhat, window1kphat) = cEM_zip(inputwindow1k)
+
+            (window5klhat, window5kphat) = cEM_zip(inputwindow5k)
+
+            (window10klhat, window10kphat) = cEM_zip(inputwindow10k)
+
+            maxlhat = max(window4maxlhat, window1klhat, window5klhat, window10klhat, gloablumbda)
+
+            for wsite in testsite[countsite]:
+
+                nowcount = int(datacount[wsite]/ratio)
+
+                nowbayesfactor = bayesfactor(locallambda=maxlhat, peakscore=nowcount)
+
+                sig = False
+
+                if nowbayesfactor > bayesfactorthreshold:
+
+                    sig = True
+
+                    if countsite in enrichedsite:
+
+                        if nowbayesfactor > enrichedsite[countsite]:
+
+                            enrichedsite[countsite] = nowbayesfactor
+
+                    else:
+
+                        enrichedsite[countsite] = nowbayesfactor
+
+        cuttingsite = cuttingsitecount(bamfile=datafile, regionchromosome=chromosome, regionstart=regionstart,
+                                       regionend=regionend, maxinsert=maxinsert, jobtype=jobtype)
+
+        for nowsite in sorted(enrichedsite):
+
+            fmax = 0
+
+            rmax = 0
+
+            fmaxsite = 0
+
+            rmaxsite = 0
+
+            for dissite in range(0, int(maxinsert/2)+1):
+
+                fsite = nowsite - dissite
+
+                rsite = nowsite + dissite
+
+                if fsite in cuttingsite['+']:
+
+                    if cuttingsite['+'][fsite] > fmax:
+
+                        fmax = cuttingsite['+'][fsite]
+
+                        fmaxsite = fsite
+
+                if rsite in cuttingsite['-']:
+
+                    if cuttingsite['-'][rsite] > rmax:
+
+                        rmax = cuttingsite['-'][rsite]
+
+                        rmaxsite = rsite
+
+            peakid = str(chromosome) + str(nowsite)
+
+            peak = Peak(start=fmaxsite, end=rmaxsite, chromosome=chromosome, peakpoint=nowsite, peakid=peakid,
+                        score=enrichedsite[nowsite])
+
+            returnpeaks.append(peak)
+
+        return returnpeaks
+
+    except KeyboardInterrupt:
+
+        sys.stderr.write("User interrupt\n")
+
+        sys.exit(0)
+
+    except Exception as e:
+
+        print(('got exception in Jazzlib.peakscan.peakscan_worker: %r, ' % (e,)))
+
+
+def peakscan_worker2(par):
+
+    try:
+
+        returnpeaks = list()
+
+        chromosome = par['chromosome']
+
+        chrlength = par['chrlength']
+
+        start = par['regionstart']
+
+        end = par['regionend']
+
+        localmaxlist = par['localmaxlist']
+
+        jobtype = par['jobtype']
+
+        maxinsert = par['maxinsert']
+
+        inputfile = par['inputfile']
+
+        datafile = par['datafile']
+
+        gloablumbda = par['gloablumbda']
+
+        bayesfactorthreshold = par['bayesfactorthreshold']
+
+        ratio = par['ratio']
+
+        lumbdamaxth = par['lumbdamaxth']
+
+        minpeaklength = 4
+
+        regionstart = start - 10000
+
+        regionend = end + 10000
+
+        if regionstart < 1:
+
+            regionstart = 1
+
+        if regionend > chrlength:
+
+            regionend = chrlength
+
+        inputcount = midsitecount(bamfile=inputfile, regionchromosome=chromosome, regionstart=regionstart,
+                                  regionend=regionend, maxinsert=maxinsert, jobtype=jobtype)
+
+        datacount = midsitecount(bamfile=datafile, regionchromosome=chromosome, regionstart=regionstart,
+                                  regionend=regionend, maxinsert=maxinsert, jobtype=jobtype)
+
+        #
+        enrichedsite = dict()
+
+        bayesfactorscore = dict()
+
+        for countsite in localmaxlist:
+
+            inputwindow4timemaxinsert = list()
+
+            inputwindow1k = list()
+
+            inputwindow5k = list()
+
+            inputwindow10k = list()
+
+            for inow in range(0-2*maxinsert, 2*maxinsert):
+
+                nowsite = countsite + inow
+
+                nowcount = 0
+
+                if nowsite < 1:
+
+                    continue
+
+                if nowsite > chrlength:
+
+                    continue
+
+                if nowsite in inputcount:
+
+                    nowcount = inputcount[nowsite]
+
+                inputwindow4timemaxinsert.append(nowcount)
+
+            for inow in range(-500, 500):
+
+                nowsite = countsite + inow
+
+                nowcount = 0
+
+                if nowsite < 1:
+
+                    continue
+
+                if nowsite > chrlength:
+
+                    continue
+
+                if nowsite in inputcount:
+
+                    nowcount = inputcount[nowsite]
+
+                inputwindow1k.append(nowcount)
+
+
+            for inow in range(-2500,2500):
+
+                nowsite = countsite + inow
+
+                nowcount = 0
+
+                if nowsite < 1:
+
+                    continue
+
+                if nowsite > chrlength:
+
+                    continue
+
+                if nowsite in inputcount:
+
+                    nowcount = inputcount[nowsite]
+
+                inputwindow5k.append(nowcount)
+
+            for inow in range(-5000,5000):
+
+                nowsite = countsite + inow
+
+                nowcount = 0
+
+                if nowsite < 1:
+
+                    continue
+
+                if nowsite > chrlength:
+
+                    continue
+
+                if nowsite in inputcount:
+
+                    nowcount = inputcount[nowsite]
+
+                inputwindow10k.append(nowcount)
+
+            (window4maxlhat, window4maxphat) = cEM_zip(inputwindow4timemaxinsert)
+
+            (window1klhat, window1kphat) = cEM_zip(inputwindow1k)
+
+            (window5klhat, window5kphat) = cEM_zip(inputwindow5k)
+
+            (window10klhat, window10kphat) = cEM_zip(inputwindow10k)
+
+            maxlhat = max(window4maxlhat, window1klhat, window5klhat, window10klhat, gloablumbda)
+
+            if maxlhat > lumbdamaxth:
+
+                lumdaarray = [window4maxlhat, window1klhat, window5klhat, window10klhat, gloablumbda]
+
+                for nextlhat in lumdaarray:
+
+                    if nextlhat < lumbdamaxth:
+
+                        maxlhat = nextlhat
+
+                        break
+
+            for wsite in range(int(countsite-maxinsert/2)-1, int(countsite+maxinsert/2)+1):
+
+                if wsite in datacount:
+
+                    nowcount = int(datacount[wsite]/ratio)
+
+                    if nowcount <= 0:
+
+                        continue
+
+                    nowbayesfactor = bayesfactor(locallambda=maxlhat, peakscore=nowcount)
+
+                    if nowbayesfactor < 0:
+
+                        nowbayesfactor = 0
+
+                    if wsite in bayesfactorscore:
+
+                        if bayesfactorscore[wsite] < nowbayesfactor:
+
+                            bayesfactorscore[wsite] = nowbayesfactor
+
+                    else:
+
+                        bayesfactorscore[wsite] = nowbayesfactor
+
+                    if nowbayesfactor > bayesfactorthreshold:
+
+                        enrichedsite[wsite] = 1
+
+        enrichedpoint = dict()
+
+        for nowsite in sorted(enrichedsite):
+
+            peakstartsite = 0
+
+            peakendsite = 0
+
+            for extend in range(1, int(maxinsert/2)+1):
+
+                totalbayesscore = 0
+
+                for site in range(nowsite-extend, nowsite+extend+1):
+
+                    score = 0
+
+                    if site in bayesfactorscore:
+
+                        score = bayesfactorscore[site]
+
+                        if math.isnan(score):
+
+                            score = 0
+
+                    totalbayesscore = totalbayesscore + score
+
+                avgbayescore = totalbayesscore/(2 * extend + 1)
+
+                if avgbayescore > bayesfactorthreshold:
+
+                    peakstartsite = nowsite-extend
+
+                    peakendsite = nowsite+extend
+
+                else:
+
+                    break
+
+            if peakstartsite == 0 and peakendsite == 0:
+
+                continue
+
+            else:
+
+                for i in range(peakstartsite, peakendsite+1):
+
+                    enrichedpoint[i] = 1
+
+        reginolist = list(enrichedpoint.keys())
+
+            # print (reginolist)
+
+        tmppeaks = continueregion(points=reginolist, minlength=5)
+
+        for tmppeak in tmppeaks:
+
+            nowpeakstart = tmppeak['start_site']
+
+            nowpeakend = tmppeak['end_site']
+
+            halflength = int((nowpeakend - nowpeakstart)/2)
+
+            for shrink in range(0,halflength):
+
+                peakid = str(chromosome) + ":" +str(nowpeakstart) +"-"+ str(nowpeakend)
+
+                totalbayesscore = 0
+
+                nowpeakstart = nowpeakstart + shrink
+
+                nowpeakend = nowpeakend - shrink
+
+                if nowpeakstart < 1:
+
+                    nowpeakstart = 1
+
+                if nowpeakend > chrlength:
+
+                    nowpeakend = chrlength
+
+                for site in range(nowpeakstart, nowpeakend+1):
+
+                    if site in bayesfactorscore:
+
+                        score = bayesfactorscore[site]
+
+                        if math.isnan(score):
+
+                            score = 0
+
+                        totalbayesscore = totalbayesscore + score
+
+                peaklength = nowpeakend - nowpeakstart + 1
+
+                if peaklength < minpeaklength:
+
+                    continue
+
+                avgbayescore = totalbayesscore/peaklength
+
+                if avgbayescore > bayesfactorthreshold:
+
+                    # print (chromosome, nowsite, nowpeakstart, nowpeakend, totalbayesscore, avgbayescore)
+
+                    # if avgbayescore > bayesfactorthreshold:
+
+                    peak = Peak(start=nowpeakstart, end=nowpeakend, chromosome=chromosome, peakpoint=nowsite, peakid=peakid,
+                                score=avgbayescore)
+
+                    returnpeaks.append(peak)
+
+                    break
+
+        return returnpeaks
+
+    except KeyboardInterrupt:
+
+        sys.stderr.write("User interrupt\n")
+
+        sys.exit(0)
+
+    except Exception as e:
+
+        print(('got exception in Jazzlib.peakscan.peakscan_worker2: %r, ' % (e,)))
+
+
+def peakscan_worker_withoutcontrol(par):
+
+    try:
+
+        returnpeaks = list()
+
+        chromosome = par['chromosome']
+
+        chrlength = par['chrlength']
+
+        start = par['regionstart']
+
+        end = par['regionend']
+
+        localmaxlist = par['localmaxlist']
+
+        jobtype = par['jobtype']
+
+        maxinsert = par['maxinsert']
+
+        datafile = par['datafile']
+
+        gloablumbda = par['gloablumbda']
+
+        bayesfactorthreshold = par['bayesfactorthreshold']
+
+        ratio = par['ratio']
+
+        lumbdamaxth = par['lumbdamaxth']
+
+        regionstart = start - 10000
+
+        regionend = end + 10000
+
+        minpeaklength = 4
+
+        if regionstart < 1:
+
+            regionstart = 1
+
+        if regionend > chrlength:
+
+            regionend = chrlength
+
+        datacount = midsitecount(bamfile=datafile, regionchromosome=chromosome, regionstart=regionstart,
+                                  regionend=regionend, maxinsert=maxinsert, jobtype=jobtype)
+
+        enrichedsite = dict()
+
+        bayesfactorscore = dict()
+
+        for countsite in localmaxlist:
+
+            inputwindow5k = list()
+
+            inputwindow10k = list()
+
+            for inow in range(-2500,2500):
+
+                nowsite = countsite + inow
+
+                nowcount = 0
+
+                if nowsite < 1:
+
+                    continue
+
+                if nowsite > chrlength:
+
+                    continue
+
+                if nowsite in datacount:
+
+                    nowcount = datacount[nowsite]
+
+                inputwindow5k.append(nowcount)
+
+            for inow in range(-5000,5000):
+
+                nowsite = countsite + inow
+
+                nowcount = 0
+
+                if nowsite < 1:
+
+                    continue
+
+                if nowsite > chrlength:
+
+                    continue
+
+                if nowsite in datacount:
+
+                    nowcount = datacount[nowsite]
+
+                inputwindow10k.append(nowcount)
+
+            (window5klhat, window5kphat) = cEM_zip(inputwindow5k)
+
+            (window10klhat, window10kphat) = cEM_zip(inputwindow10k)
+
+            maxlhat = max(window5klhat, window10klhat, gloablumbda)
+
+            if maxlhat > lumbdamaxth:
+
+                lumdaarray = [window5klhat, window10klhat, gloablumbda]
+
+                for nextlhat in lumdaarray:
+
+                    if nextlhat < lumbdamaxth:
+
+                        maxlhat = nextlhat
+
+                        break
+
+            for wsite in range(int(countsite-maxinsert/2)-1, int(countsite+maxinsert/2)+1):
+
+                if wsite in datacount:
+
+                    nowcount = int(datacount[wsite]/ratio)
+
+                    if nowcount == 0:
+
+                        continue
+
+                    nowbayesfactor = bayesfactor(locallambda=maxlhat, peakscore=nowcount)
+
+                    if nowbayesfactor < 0:
+
+                        nowbayesfactor = 0
+
+                    if wsite in bayesfactorscore:
+
+                        if bayesfactorscore[wsite] < nowbayesfactor:
+
+                            bayesfactorscore[wsite] = nowbayesfactor
+
+                    else:
+
+                        bayesfactorscore[wsite] = nowbayesfactor
+
+                    if nowbayesfactor > bayesfactorthreshold:
+
+                        enrichedsite[wsite] = 1
+
+        enrichedpoint = dict()
+
+        for nowsite in sorted(enrichedsite):
+
+            peakstartsite = 0
+
+            peakendsite = 0
+
+            for extend in range(1, int(maxinsert/2)+1):
+
+                totalbayesscore = 0
+
+                for site in range(nowsite-extend, nowsite+extend+1):
+
+                    score = 0
+
+                    if site in bayesfactorscore:
+
+                        score = bayesfactorscore[site]
+
+                        if math.isnan(score):
+
+                            score = 0
+
+                    totalbayesscore = totalbayesscore + score
+
+                avgbayescore = totalbayesscore/(2 * extend + 1)
+
+                if avgbayescore > bayesfactorthreshold:
+
+                    peakstartsite = nowsite-extend
+
+                    peakendsite = nowsite+extend
+
+                else:
+
+                    break
+
+            if peakstartsite == 0 and peakendsite == 0:
+
+                continue
+
+            else:
+
+                for i in range(peakstartsite, peakendsite+1):
+
+                    enrichedpoint[i] = 1
+
+        reginolist = list(enrichedpoint.keys())
+
+        tmppeaks = continueregion(points=reginolist, minlength=5)
+
+        for tmppeak in tmppeaks:
+
+            nowpeakstart = tmppeak['start_site']
+
+            nowpeakend = tmppeak['end_site']
+
+            halflength = int((nowpeakend - nowpeakstart)/2)
+
+            for shrink in range(0,halflength):
+
+                peakid = str(chromosome) + ":" +str(nowpeakstart) +"-"+ str(nowpeakend)
+
+                totalbayesscore = 0
+
+                nowpeakstart = nowpeakstart + shrink
+
+                nowpeakend = nowpeakend - shrink
+
+                if nowpeakstart < 1:
+
+                    nowpeakstart = 1
+
+                if nowpeakend > chrlength:
+
+                    nowpeakend = chrlength
+
+                for site in range(nowpeakstart, nowpeakend+1):
+
+                    if site in bayesfactorscore:
+
+                        score = bayesfactorscore[site]
+
+                        if math.isnan(score):
+
+                            score = 0
+
+                        totalbayesscore = totalbayesscore + score
+
+                peaklength = nowpeakend - nowpeakstart + 1
+
+                if peaklength < minpeaklength:
+
+                    continue
+
+                avgbayescore = totalbayesscore/(nowpeakend - nowpeakstart + 1)
+
+                if avgbayescore > bayesfactorthreshold:
+
+                    # print (chromosome, nowsite, nowpeakstart, nowpeakend, totalbayesscore, avgbayescore)
+
+                    peak = Peak(start=nowpeakstart, end=nowpeakend, chromosome=chromosome, peakpoint=nowsite, peakid=peakid,
+                                score=avgbayescore)
+
+                    returnpeaks.append(peak)
+
+                    break
+        # print (chromosome, start, end)
+
+        return returnpeaks
+
+    except KeyboardInterrupt:
+
+        sys.stderr.write("User interrupt\n")
+
+        sys.exit(0)
+
+    except Exception as e:
+
+        print(('got exception in Jazzlib.peakscan.peakscan_worker_withoutcontrol: %r, ' % (e,)))
+
+        # print (par)
+
+
+def peakscan_worker_withoutcontrol2(par):
+
+    try:
+
+        returnpeaks = list()
+
+        chromosome = par['chromosome']
+
+        chrlength = par['chrlength']
+
+        start = par['regionstart']
+
+        end = par['regionend']
+
+        localmaxlist = par['localmaxlist']
+
+        jobtype = par['jobtype']
+
+        maxinsert = par['maxinsert']
+
+        datafile = par['datafile']
+
+        gloablumbda = par['gloablumbda']
+
+        bayesfactorthreshold = par['bayesfactorthreshold']
+
+        ratio = par['ratio']
+
+        lumbdamaxth = par['lumbdamaxth']
+
+        regionstart = start - 10000
+
+        regionend = end + 10000
+
+        minpeaklength = 4
+
+        if regionstart < 1:
+
+            regionstart = 1
+
+        if regionend > chrlength:
+
+            regionend = chrlength
+
+        datacount = extenddepthcount(bamfile=datafile, regionchromosome=chromosome, regionstart=regionstart,
+                                regionend=regionend, maxinsert=maxinsert, jobtype=jobtype)
+
+        # cuttingsite = cuttingsitecount(bamfile=datafile, regionchromosome=chromosome, regionstart=regionstart,
+        #                                regionend=regionend, maxinsert=maxinsert, jobtype=jobtype)
+
+        enrichedsite = dict()
+
+        bayesfactorscore = dict()
+
+        for countsite in localmaxlist:
+
+            inputwindow5k = list()
+
+            inputwindow10k = list()
+
+            for inow in range(-2500,2500):
+
+                nowsite = countsite + inow
+
+                nowcount = 0
+
+                if nowsite < 1:
+
+                    continue
+
+                if nowsite > chrlength:
+
+                    continue
+
+                if nowsite in datacount:
+
+                    nowcount = datacount[nowsite]
+
+                inputwindow5k.append(nowcount)
+
+            for inow in range(-5000,5000):
+
+                nowsite = countsite + inow
+
+                nowcount = 0
+
+                if nowsite < 1:
+
+                    continue
+
+                if nowsite > chrlength:
+
+                    continue
+
+                if nowsite in datacount:
+
+                    nowcount = datacount[nowsite]
+
+                inputwindow10k.append(nowcount)
+
+            (window5klhat, window5kphat) = cEM_zip(inputwindow5k)
+
+            (window10klhat, window10kphat) = cEM_zip(inputwindow10k)
+
+            maxlhat = max(window5klhat, window10klhat, gloablumbda)
+
+            if maxlhat > lumbdamaxth:
+
+                lumdaarray = [window5klhat, window10klhat, gloablumbda]
+
+                print((chromosome, start, end, maxlhat, lumbdamaxth))
+
+                for nextlhat in sorted(lumdaarray, reverse=True):
+
+                    if nextlhat < lumbdamaxth:
+
+                        maxlhat = nextlhat
+
+                        break
+
+            # if (start<327179) and (chromosome == 'chrV'):
+            #
+            #     print (chromosome, start, end, maxlhat, lumbdamaxth, window5klhat, window10klhat, gloablumbda)
+
+            # print (chromosome,start,end,lumbdamaxth, maxlhat, window5klhat, window10klhat, gloablumbda)
+
+            for wsite in range(int(countsite-maxinsert/2)-1, int(countsite+maxinsert/2)+1):
+
+                if wsite in datacount:
+
+                    nowcount = int(datacount[wsite]/ratio)
+
+                    if nowcount == 0:
+
+                        continue
+
+                    nowbayesfactor = bayesfactor(locallambda=maxlhat, peakscore=nowcount)
+
+                    if nowbayesfactor < 0:
+
+                        nowbayesfactor = 0
+
+                    if wsite in bayesfactorscore:
+
+                        if bayesfactorscore[wsite] < nowbayesfactor:
+
+                            bayesfactorscore[wsite] = nowbayesfactor
+
+                    else:
+
+                        bayesfactorscore[wsite] = nowbayesfactor
+        #
+                    if nowbayesfactor > bayesfactorthreshold:
+
+                        enrichedsite[wsite] = 1
+
+        reginolist = list(enrichedsite.keys())
+
+        # print (reginolist)
+
+        tmppeaks = continueregion(points=reginolist, minlength=2)
+
+        # if chromosome == 'chrV':
+        #
+        #     print (reginolist)
+        #
+        #     print (tmppeaks)
+
+        #print (tmppeaks)
+
+        enrichedpoint = dict()
+
+        for tmppeak in tmppeaks:
+
+            nowpeakstart = tmppeak['start_site']
+
+            nowpeakend = tmppeak['end_site']
+
+            for i in range(nowpeakstart,nowpeakend+1):
+
+                enrichedpoint[i] = 1
+
+            # if chromosome == 'chrV':
+            #
+            #     if nowpeakstart < 327179:
+            #
+            #         print (reginolist)
+            #
+            #         print (tmppeaks)
+            #
+            # fmax = 0
+            #
+            # rmax = 0
+            #
+            # fmaxsite = 0
+            #
+            # rmaxsite = 0
+            #
+            # for dissite in range(0, int(maxinsert/2)+1):
+            #
+            #     fsite = nowpeakstart - dissite
+            #
+            #     rsite = nowpeakend + dissite
+            #
+            #     if fsite in cuttingsite['+']:
+            #
+            #         if cuttingsite['+'][fsite] > fmax:
+            #
+            #             fmax = cuttingsite['+'][fsite]
+            #
+            #             fmaxsite = fsite
+            #
+            #     if rsite in cuttingsite['-']:
+            #
+            #         if cuttingsite['-'][rsite] > rmax:
+            #
+            #             rmax = cuttingsite['-'][rsite]
+            #
+            #             rmaxsite = rsite
+            #
+            # for i in range(fmaxsite,rmaxsite+1):
+            #
+            #     enrichedpoint[i] = 1
+
+        enrichpointlist = list(enrichedpoint.keys())
+
+        peaks_startend = continueregion(enrichpointlist)
+
+        for peakstartend in peaks_startend:
+
+            peakstart = peakstartend['start_site']
+
+            peakend = peakstartend['end_site']
+
+            if peakstart == 0:
+                print((peakstart, peakend, "error"))
+                continue
+
+            maxscore = 0
+
+            peaksummit = 0
+
+            # for i in range(peakstart, peakend):
+            #
+            #     if i in bayesfactorscore:
+            #
+            #         if bayesfactorscore[i] > maxscore:
+            #
+            #             maxscore = bayesfactorscore[i]
+            #
+            #             peaksummit = i
+            #
+            # if (peakend - peakstart)>=minpeaklength:
+            #
+            #     peakid = chromosome+str(peaksummit)
+            #
+            #     peak = Peak(start=peakstart, end=peakend, chromosome=chromosome, peakpoint=peaksummit, peakid=peakid,
+            #                 score=maxscore)
+            #
+            #     returnpeaks.append(peak)
+
+            halflength = int((peakend - peakstart)/2)
+
+            for shrink in range(0, halflength):
+
+                peakid = str(chromosome) + ":" +str(peakend) +"-"+ str(peakstart)
+
+                totalbayesscore = 0
+
+                peakstart = peakstart + shrink
+
+                peakend = peakend - shrink
+
+                if nowpeakstart < 1:
+
+                    nowpeakstart = 1
+
+                if nowpeakend > chrlength:
+
+                    nowpeakend = chrlength
+
+                for site in range(peakstart, peakend+1):
+
+                    if site in bayesfactorscore:
+
+                        score = bayesfactorscore[site]
+
+                        if math.isnan(score):
+
+                            score = 0
+
+                        if score > maxscore:
+
+                            maxscore = score
+
+                            peaksummit = site
+
+                        totalbayesscore = totalbayesscore + score
+
+                peaklength = peakend - peakstart + 1
+
+                if peaklength < minpeaklength:
+
+                    continue
+
+                avgbayescore = totalbayesscore/(nowpeakend - nowpeakstart + 1)
+
+                if avgbayescore > bayesfactorthreshold:
+
+                    # print (chromosome, nowsite, nowpeakstart, nowpeakend, totalbayesscore, avgbayescore)
+
+                    peak = Peak(start=peakstart, end=peakend, chromosome=chromosome, peakpoint=peaksummit, peakid=peakid,
+                                score=avgbayescore)
+
+                    returnpeaks.append(peak)
+
+                    break
+
+
+        return returnpeaks
+
+    except KeyboardInterrupt:
+
+        sys.stderr.write("User interrupt\n")
+
+        sys.exit(0)
+
+    except Exception as e:
+
+        print(('got exception in Jazzlib.peakscan.peakscan_worker_withoutcontrol: %r, ' % (e,)))
+
+        # print (par)

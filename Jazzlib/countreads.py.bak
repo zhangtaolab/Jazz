@@ -1,0 +1,1213 @@
+from __future__ import division
+from __future__ import print_function
+import pysam
+import sys
+
+
+class KeyboardInterruptError(Exception):
+
+    pass
+
+
+def nhpairedmidsitecounter(bamfile, regionchromosome, regionstart, regionend, maxinsert):
+
+    try:
+        samfile = pysam.Samfile(bamfile)
+
+        middle_site_count = dict()
+
+        for aligened_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if aligened_read.is_proper_pair:
+
+                if not aligened_read.is_reverse:
+
+                    if aligened_read.isize <= maxinsert:
+
+                        pair_start = aligened_read.pos
+
+                        if aligened_read.isize % 2 == 0:
+
+                            middle1 = pair_start + aligened_read.isize / 2
+
+                            middle2 = pair_start + aligened_read.isize / 2 - 1
+
+                        else:
+
+                            middle1 = pair_start + int(aligened_read.isize / 2)
+
+                            middle2 = pair_start + int(aligened_read.isize / 2)
+
+                        middleint1 = int(middle1)
+
+                        middleint2 = int(middle2)
+
+                        if (regionstart<=middleint1<=regionend):
+
+                            if middleint1 in middle_site_count:
+
+                                middle_site_count[middleint1] = middle_site_count[middleint1] + 1
+
+                            else:
+
+                                middle_site_count[middleint1] = 1
+
+                        if (regionstart<=middleint2<=regionend):
+
+                            if middleint2 in middle_site_count:
+
+                                middle_site_count[middleint2] = middle_site_count[middleint2] + 1
+
+                            else:
+
+                                middle_site_count[middleint2] = 1
+
+        return middle_site_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhpaireduniqcount(bamfile, regionchromosome, regionstart, regionend, maxinsert):
+
+    try:
+        samfile = pysam.Samfile(bamfile)
+
+        middle_site_count = dict()
+
+        for aligened_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if aligened_read.is_proper_pair:
+
+                if not aligened_read.is_reverse:
+
+                    if aligened_read.isize <= maxinsert:
+
+                        pair_start = aligened_read.pos
+
+                        if aligened_read.isize % 2 == 0:
+
+                            middle1 = pair_start + aligened_read.isize / 2
+
+                            middle2 = pair_start + aligened_read.isize / 2 - 1
+
+                        else:
+
+                            middle1 = pair_start + int(aligened_read.isize / 2)
+
+                            middle2 = pair_start + int(aligened_read.isize / 2)
+
+                        middleint1 = int(middle1)
+
+                        middleint2 = int(middle2)
+
+                        if (regionstart<=middleint1<=regionend):
+
+                            if not middleint1 in middle_site_count:
+
+                                middle_site_count[middleint1] = 1
+
+                        if (regionstart<=middleint2<=regionend):
+
+                            if not middleint2 in middle_site_count:
+
+                                middle_site_count[middleint2] = 1
+
+        uniqsize = len(middle_site_count)
+
+        return uniqsize
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhpairedreadslengthmean(bamfile, regionchromosome, regionstart, regionend, maxinsert):
+
+    try:
+        samfile = pysam.Samfile(bamfile)
+
+        readslength = list()
+
+        for aligened_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if aligened_read.is_proper_pair:
+
+                if not aligened_read.is_reverse:
+
+                    if aligened_read.isize <= maxinsert:
+
+                        readslength.append(aligened_read.isize)
+
+        readslengthmean = sum(readslength)/len(readslength)
+
+        return readslengthmean
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhpairedwindowscarecounter(bamfile, regionchromosome, regionstart, regionend, maxinsert, windowsize):
+
+    try:
+
+        samfile = pysam.Samfile(bamfile)
+
+        window_size_count = dict()
+
+        for aligened_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if aligened_read.is_proper_pair:
+
+                if not aligened_read.is_reverse:
+
+                    if aligened_read.isize <= maxinsert:
+
+                        pair_start = aligened_read.pos
+
+                        if aligened_read.isize % 2 == 0:
+
+                            middle1 = pair_start + aligened_read.isize / 2
+
+                            middle2 = pair_start + aligened_read.isize / 2 - 1
+
+                        else:
+
+                            middle1 = pair_start + int(aligened_read.isize / 2)
+
+                            middle2 = pair_start + int(aligened_read.isize / 2)
+
+                        middleint1 = int(middle1/windowsize)
+
+                        middleint2 = int(middle2/windowsize)
+
+                        if (regionstart<=middleint1<=regionend):
+
+                            if middleint1 in window_size_count:
+
+                                window_size_count[middleint1] = window_size_count[middleint1] + 1
+
+                            else:
+
+                                window_size_count[middleint1] = 1
+
+                        if (regionstart<=middleint2<=regionend):
+
+                            if middleint2 in window_size_count:
+
+                                window_size_count[middleint2] = window_size_count[middleint2] + 1
+
+                            else:
+
+                                window_size_count[middleint2] = 1
+
+        return window_size_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhpairedmidsiteinsersizecounter(bamfile, regionchromosome, regionstart, regionend, maxinsert):
+
+    try:
+
+        samfile = pysam.Samfile(bamfile)
+
+        middle_site_isite_count = dict()
+
+        for aligened_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if aligened_read.is_proper_pair:
+
+                if not aligened_read.is_reverse:
+
+                    if aligened_read.isize <= maxinsert:
+
+                        pair_start = aligened_read.pos
+
+                        if aligened_read.isize % 2 == 0:
+
+                            middle1 = pair_start + aligened_read.isize / 2
+
+                            middle2 = pair_start + aligened_read.isize / 2 - 1
+
+                        else:
+
+                            middle1 = pair_start + int(aligened_read.isize / 2)
+
+                            middle2 = pair_start + int(aligened_read.isize / 2)
+
+                        middleint1 = int(middle1)
+
+                        middleint2 = int(middle2)
+
+                        if (regionstart<=middleint1<=regionend):
+
+                            if aligened_read.isize in middle_site_isite_count:
+
+                                if middleint1 in middle_site_isite_count[aligened_read.isize]:
+
+                                    middle_site_isite_count[aligened_read.isize][middleint1] = middle_site_isite_count[aligened_read.isize][middleint1] +1
+
+                                else:
+
+                                    middle_site_isite_count[aligened_read.isize][middleint1] = 1
+
+                            else:
+
+                                middle_site_isite_count[aligened_read.isize] = dict()
+
+                                middle_site_isite_count[aligened_read.isize][middleint1] = 1
+
+                        if (regionstart<=middleint2<=regionend):
+
+                            if aligened_read.isize in middle_site_isite_count:
+
+                                if middleint2 in middle_site_isite_count[aligened_read.isize]:
+
+                                    middle_site_isite_count[aligened_read.isize][middleint2] = middle_site_isite_count[aligened_read.isize][middleint2] +1
+
+                                else:
+
+                                    middle_site_isite_count[aligened_read.isize][middleint2] = 1
+
+                            else:
+
+                                middle_site_isite_count[aligened_read.isize] = dict()
+
+                                middle_site_isite_count[aligened_read.isize][middleint2] = 1
+
+        return middle_site_isite_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhpairedwindowcounter(bamfile, regionchromosome, regionstart, regionend, maxinsert):
+
+    try:
+
+        samfile = pysam.Samfile(bamfile)
+
+        window_count = 0
+
+
+        for aligened_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if aligened_read.is_proper_pair:
+
+                if not aligened_read.is_reverse:
+
+                    if aligened_read.isize <= maxinsert:
+
+                        pair_start = aligened_read.pos
+
+                        if aligened_read.isize % 2 == 0:
+
+                            middle1 = pair_start + aligened_read.isize / 2
+
+                            middle2 = pair_start + aligened_read.isize / 2 - 1
+
+                        else:
+
+                            middle1 = pair_start + int(aligened_read.isize / 2)
+
+                            middle2 = pair_start + int(aligened_read.isize / 2)
+
+                        middleint1 = int(middle1)
+
+                        middleint2 = int(middle2)
+
+                        if (regionstart<=middleint1<=regionend):
+
+                            window_count = window_count + 1
+
+                        if (regionstart<=middleint2<=regionend):
+
+                            window_count = window_count + 1
+
+        return window_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhpairedcuttingsitecount(bamfile, regionchromosome, regionstart, regionend, maxinsert):
+
+    try:
+
+        samfile = pysam.Samfile(bamfile)
+
+        cutting_site_count = dict()
+
+        cutting_site_count['+'] = dict()
+
+        cutting_site_count['-'] = dict()
+
+        # chromosome, sesite = region.split(':')
+        #
+        # startsite, endsite = sesite.split('-')
+        #
+        # startsite = int(startsite)
+        #
+        # endsite = int(endsite)
+
+        for aligened_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if aligened_read.is_proper_pair:
+
+                if aligened_read.isize <= maxinsert:
+
+                    if not aligened_read.is_reverse:
+
+                        fsite = aligened_read.pos
+
+                        rsite = fsite + aligened_read.isize
+
+                        if (regionstart<=fsite<=regionend):
+
+                            if fsite in cutting_site_count['+']:
+
+                                cutting_site_count['+'][fsite] = cutting_site_count['+'][fsite] + 1
+
+                            else:
+
+                                cutting_site_count['+'][fsite] = 1
+
+                        if (regionstart<=rsite<=regionend):
+
+                            if rsite in cutting_site_count['-']:
+
+                                cutting_site_count['-'][rsite] = cutting_site_count['-'][rsite] + 1
+
+                            else:
+
+                                cutting_site_count['-'][rsite] = 1
+
+        return cutting_site_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhpaireddepthcount(bamfile, regionchromosome, regionstart, regionend, maxinsert):
+
+    try:
+
+        samfile = pysam.Samfile(bamfile)
+
+        depth_count = dict()
+
+        for aligened_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if aligened_read.is_proper_pair:
+
+                if aligened_read.isize <= maxinsert:
+
+                    if not aligened_read.is_reverse:
+
+                        fsite = aligened_read.pos
+
+                        rsite = fsite + aligened_read.isize
+
+                        for i in range(fsite,rsite+1):
+
+                            if regionstart<=i<=regionend:
+
+                                if i in depth_count:
+
+                                    depth_count[i] = depth_count[i] + 1
+
+                                else:
+
+                                    depth_count[i] = 1
+
+        return depth_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhpairedextenddepthcount(bamfile, regionchromosome, regionstart, regionend, maxinsert,readlengthmean):
+
+    try:
+
+        samfile = pysam.Samfile(bamfile)
+
+        depth_count = dict()
+
+        for aligened_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if aligened_read.is_proper_pair:
+
+                if aligened_read.isize <= maxinsert:
+
+                    if not aligened_read.is_reverse:
+
+                        fsite = int(aligened_read.pos - readlengthmean/2)
+
+                        rsite = int(aligened_read.pos + aligened_read.isize + readlengthmean/2)
+
+                        for i in range(fsite,rsite+1):
+
+                            if regionstart<=i<=regionend:
+
+                                if i in depth_count:
+
+                                    depth_count[i] = depth_count[i] + 1
+
+                                else:
+
+                                    depth_count[i] = 1
+
+        return depth_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhsinglemidsitecounter(bamfile, regionchromosome, regionstart, regionend, maxinsert):
+
+    try:
+
+        samfile = pysam.Samfile(bamfile)
+
+        middle_site_count = dict()
+
+        for alignend_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if alignend_read.alen <= maxinsert:
+
+                if alignend_read.alen % 2 == 0:
+
+                    middle1 = alignend_read.pos + alignend_read.alen / 2
+
+                    middle2 = alignend_read.pos + alignend_read.alen / 2 + 1
+
+                else:
+
+                    middle1 = alignend_read.pos + int(alignend_read.alen / 2)
+
+                    middle2 = alignend_read.pos + int(alignend_read.alen / 2)
+
+
+                middleint1 = int(middle1)
+
+                middleint2 = int(middle2)
+
+                if (regionstart<=middleint1<=regionend):
+
+                    if middleint1 in middle_site_count:
+
+                        middle_site_count[middleint1] = middle_site_count[middleint1] + 1
+
+                    else:
+
+                         middle_site_count[middleint1] = 1
+
+                if (regionstart<=middleint2<=regionend):
+
+                    if middleint2 in middle_site_count:
+
+                        middle_site_count[middleint2] = middle_site_count[middleint2] + 1
+
+                    else:
+
+                        middle_site_count[middleint2] = 1
+
+        return middle_site_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhsingleuniqcount(bamfile, regionchromosome, regionstart, regionend, maxinsert):
+
+    try:
+
+        samfile = pysam.Samfile(bamfile)
+
+        middle_site_count = dict()
+
+        for alignend_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if alignend_read.alen <= maxinsert:
+
+                if alignend_read.alen % 2 == 0:
+
+                    middle1 = alignend_read.pos + alignend_read.alen / 2
+
+                    middle2 = alignend_read.pos + alignend_read.alen / 2 + 1
+
+                else:
+
+                    middle1 = alignend_read.pos + int(alignend_read.alen / 2)
+
+                    middle2 = alignend_read.pos + int(alignend_read.alen / 2)
+
+
+                middleint1 = int(middle1)
+
+                middleint2 = int(middle2)
+
+                if (regionstart<=middleint1<=regionend):
+
+                    if not middleint1 in middle_site_count:
+
+                         middle_site_count[middleint1] = 1
+
+                if (regionstart<=middleint2<=regionend):
+
+                    if not middleint2 in middle_site_count:
+
+                        middle_site_count[middleint2] = 1
+
+        uniqcount = len(middle_site_count)
+
+        return uniqcount
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhsinglereadslengthmean(bamfile, regionchromosome, regionstart, regionend, maxinsert):
+
+    try:
+
+        samfile = pysam.Samfile(bamfile)
+
+        readslength = list()
+
+        for alignend_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if alignend_read.alen <= maxinsert:
+
+                readslength.append(alignend_read.alen)
+
+        readslengthmean = sum(readslength)/len(readslength)
+
+        return readslengthmean
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhsinglewindowscarecounter(bamfile, regionchromosome, regionstart, regionend, maxinsert, windowsize):
+    try:
+
+        samfile = pysam.Samfile(bamfile)
+
+        window_size_count = dict()
+
+        for alignend_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if alignend_read.alen <= maxinsert:
+
+                if alignend_read.alen % 2 == 0:
+
+                    middle1 = alignend_read.pos + alignend_read.alen / 2
+
+                    middle2 = alignend_read.pos + alignend_read.alen / 2 + 1
+
+                else:
+
+                    middle1 = alignend_read.pos + int(alignend_read.alen / 2)
+
+                    middle2 = alignend_read.pos + int(alignend_read.alen / 2)
+
+
+                middleint1 = int(middle1/windowsize)
+
+                middleint2 = int(middle2/windowsize)
+
+                if (regionstart<=middleint1<=regionend):
+
+                    if middleint1 in window_size_count:
+
+                        window_size_count[middleint1] = window_size_count[middleint1] + 1
+
+                    else:
+
+                         window_size_count[middleint1] = 1
+
+                if (regionstart<=middleint2<=regionend):
+
+                    if middleint2 in window_size_count:
+
+                        window_size_count[middleint2] = window_size_count[middleint2] + 1
+
+                    else:
+
+                        window_size_count[middleint2] = 1
+
+        return window_size_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhsinglemidsiteinsersizecounter(bamfile, regionchromosome, regionstart, regionend, maxinsert):
+
+    try:
+        samfile = pysam.Samfile(bamfile)
+
+        middle_site_isite_count = dict()
+
+        # chromosome, sesite = region.split(':')
+        #
+        # startsite, endsite = sesite.split('-')
+        #
+        # startsite = int(startsite)
+        #
+        # endsite = int(endsite)
+
+        for alignend_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if alignend_read.alen <= maxinsert:
+
+                if alignend_read.alen % 2 == 0:
+
+                    middle1 = alignend_read.pos + alignend_read.alen / 2
+
+                    middle2 = alignend_read.pos + alignend_read.alen / 2 + 1
+
+                else:
+
+                    middle1 = alignend_read.pos + int(alignend_read.alen / 2)
+
+                    middle2 = alignend_read.pos + int(alignend_read.alen / 2)
+
+                middleint1 = int(middle1)
+
+                middleint2 = int(middle2)
+
+                if (regionstart<=middleint1<=regionend):
+
+                    if alignend_read.alen in middle_site_isite_count:
+
+                        if middleint1 in middle_site_isite_count[alignend_read.alen]:
+
+                            middle_site_isite_count[alignend_read.alen][middleint1] = middle_site_isite_count[alignend_read.alen][middleint1] +1
+
+                        else:
+
+                            middle_site_isite_count[alignend_read.alen][middleint1] = 1
+
+                    else:
+
+                        middle_site_isite_count[alignend_read.alen] = dict()
+
+                        middle_site_isite_count[alignend_read.alen][middleint1] = 1
+
+                if (regionstart<=middleint2<=regionend):
+
+                    if alignend_read.alen in middle_site_isite_count:
+
+                        if middleint2 in middle_site_isite_count[alignend_read.alen]:
+
+                            middle_site_isite_count[alignend_read.alen][middleint2] = middle_site_isite_count[alignend_read.alen][middleint2] +1
+
+                        else:
+
+                            middle_site_isite_count[alignend_read.alen][middleint2] = 1
+
+                    else:
+
+                        middle_site_isite_count[alignend_read.alen] = dict()
+
+                        middle_site_isite_count[alignend_read.alen][middleint2] = 1
+
+        return middle_site_isite_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhsinglewindowcounter(bamfile, regionchromosome, regionstart, regionend, maxinsert):
+
+    try:
+        samfile = pysam.Samfile(bamfile)
+
+        window_count = 0
+
+        # chromosome, sesite = region.split(':')
+        #
+        # startsite, endsite = sesite.split('-')
+        #
+        # startsite = int(startsite)
+        #
+        # endsite = int(endsite)
+
+        for alignend_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if alignend_read.alen <= maxinsert:
+
+                if alignend_read.alen % 2 == 0:
+
+                    middle1 = alignend_read.pos + alignend_read.alen / 2
+
+                    middle2 = alignend_read.pos + alignend_read.alen / 2 + 1
+
+                else:
+
+                    middle1 = alignend_read.pos + int(alignend_read.alen / 2)
+
+                    middle2 = alignend_read.pos + int(alignend_read.alen / 2)
+
+                middleint1 = int(middle1)
+
+                middleint2 = int(middle2)
+
+                if (regionstart<=middleint1<=regionend):
+
+                    window_count = window_count + 1
+
+                if (regionstart<=middleint2<=regionend):
+
+                    window_count = window_count + 1
+
+        return window_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhsinglecuttingsitecount(bamfile, regionchromosome, regionstart, regionend, maxinsert):
+
+    try:
+
+        samfile = pysam.Samfile(bamfile)
+
+        cutting_site_count = dict()
+
+        cutting_site_count['+'] = dict()
+
+        cutting_site_count['-'] = dict()
+
+        # chromosome, sesite = region.split(':')
+        #
+        # startsite, endsite = sesite.split('-')
+        #
+        # startsite = int(startsite)
+        #
+        # endsite = int(endsite)
+
+        for aligned_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if aligned_read.alen <= maxinsert:
+
+                fsite = aligned_read.pos
+
+                rsite = aligned_read.aend
+
+                if (regionstart<=fsite<=regionend):
+
+                    if fsite in cutting_site_count['+']:
+
+                        cutting_site_count['+'][fsite] = cutting_site_count['+'][fsite] + 1
+
+                    else:
+
+                        cutting_site_count['+'][fsite] = 1
+
+                if (regionstart<=rsite<=regionend):
+
+                    if rsite in cutting_site_count['-']:
+
+                        cutting_site_count['-'][rsite] = cutting_site_count['-'][rsite] + 1
+
+                    else:
+
+                        cutting_site_count['-'][rsite] = 1
+
+        return cutting_site_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhsingledepthcount(bamfile, regionchromosome, regionstart, regionend, maxinsert):
+
+    try:
+
+        samfile = pysam.Samfile(bamfile)
+
+        depth_count = dict()
+
+        for aligned_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if 0<aligned_read.alen <= maxinsert:
+
+                fsite = aligned_read.pos
+
+                rsite = aligned_read.aend
+
+                for i in range(fsite,rsite+1):
+
+                    if regionstart<=i<=regionend:
+
+                        if i in depth_count:
+
+                            depth_count[i] = depth_count[i] + 1
+
+                        else:
+
+                            depth_count[i] = 1
+
+        return depth_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def nhsingleextenddepthcount(bamfile, regionchromosome, regionstart, regionend, maxinsert, readlengthmean):
+
+    try:
+
+        samfile = pysam.Samfile(bamfile)
+
+        depth_count = dict()
+
+        for aligned_read in samfile.fetch(reference=str(regionchromosome), start=regionstart, end=regionend):
+
+            if aligned_read.alen <= maxinsert:
+
+                fsite = int(aligned_read.pos - readlengthmean/2)
+
+                rsite = int(aligned_read.aend + readlengthmean/2)
+
+                for i in range(fsite,rsite+1):
+
+                    if regionstart<=i<=regionend:
+
+                        if i in depth_count:
+
+                             depth_count[i] = depth_count[i] + 1
+
+                        else:
+
+                            depth_count[i] = 1
+
+        return depth_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+
+def cuttingsitecount(bamfile, regionchromosome, regionstart, regionend, maxinsert, jobtype):
+
+    try:
+
+        if jobtype == 'nhpaired':
+
+            count = nhpairedcuttingsitecount(bamfile, regionchromosome, regionstart, regionend, maxinsert)
+
+        elif jobtype == 'nhsingle':
+
+            count = nhsinglecuttingsitecount(bamfile, regionchromosome, regionstart, regionend, maxinsert)
+
+        else:
+
+            print ("%s count type error!!!!" % jobtype)
+
+            sys.exit(1)
+
+        return count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def midsitecount(bamfile, regionchromosome, regionstart, regionend, maxinsert, jobtype):
+
+    try:
+
+        if jobtype == 'nhpaired':
+
+            count = nhpairedmidsitecounter(bamfile, regionchromosome, regionstart, regionend, maxinsert)
+
+        elif jobtype == 'nhsingle':
+
+            count = nhsinglemidsitecounter(bamfile, regionchromosome, regionstart, regionend, maxinsert)
+
+        else:
+
+            print ("%s count type error!!!!" % jobtype)
+
+            sys.exit(1)
+
+        return count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def uniqsitecount(bamfile, regionchromosome, regionstart, regionend, maxinsert, jobtype):
+
+    try:
+
+        if jobtype == 'nhpaired':
+
+            count = nhpaireduniqcount(bamfile, regionchromosome, regionstart, regionend, maxinsert)
+
+        elif jobtype == 'nhsingle':
+
+            count = nhsingleuniqcount(bamfile, regionchromosome, regionstart, regionend, maxinsert)
+
+        else:
+
+            print ("%s count type error!!!!" % jobtype)
+
+            sys.exit(1)
+
+        return count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+#nhsinglereadslengthmean
+def readslengthmean(bamfile, regionchromosome, regionstart, regionend, maxinsert, jobtype):
+
+    try:
+
+        if jobtype == 'nhpaired':
+
+            count = nhpairedreadslengthmean(bamfile, regionchromosome, regionstart, regionend, maxinsert)
+
+        elif jobtype == 'nhsingle':
+
+            count = nhsinglereadslengthmean(bamfile, regionchromosome, regionstart, regionend, maxinsert)
+
+        else:
+
+            print ("%s count type error!!!!" % jobtype)
+
+            sys.exit(1)
+
+        return count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+def midsiteinsersizecounter(bamfile, regionchromosome, regionstart, regionend, maxinsert, jobtype):
+
+    try:
+
+        if jobtype == 'nhpaired':
+
+            count = nhpairedmidsiteinsersizecounter(bamfile, regionchromosome, regionstart, regionend, maxinsert)
+
+        elif jobtype == 'nhsingle':
+
+            count = nhsinglemidsiteinsersizecounter(bamfile, regionchromosome, regionstart, regionend, maxinsert)
+
+        else:
+
+            print ("%s count type error!!!!" % jobtype)
+
+            sys.exit(1)
+
+        return count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def windowscarecounter(bamfile, regionchromosome, regionstart, regionend, maxinsert, windowsize, jobtype):
+
+    try:
+
+        if jobtype == 'nhpaired':
+
+            window_size_count = nhpairedwindowscarecounter(bamfile, regionchromosome, regionstart, regionend,
+                                                           maxinsert, windowsize)
+
+        elif jobtype == 'nhsingle':
+
+            window_size_count = nhsinglewindowscarecounter(bamfile, regionchromosome, regionstart, regionend,
+                                                           maxinsert, windowsize)
+
+        else:
+
+            print ("%s count type error!!!!" % jobtype)
+
+            sys.exit(1)
+
+        return window_size_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+
+
+def windowmidsitecounter(bamfile, regionchromosome, regionstart, regionend, maxinsert, windowsize, jobtype, chr_length):
+
+    try:
+
+        window_count = dict()
+
+        # chromosome, sesite = region.split(':')
+        #
+        # startsite, endsite = sesite.split('-')
+        #regionchromosome, regionstart, regionend,
+
+        regionstart = int(int(regionstart)-windowsize/2)
+
+        regionend = int(int(regionend)+windowsize/2)
+
+        if regionstart < 1:
+
+            regionstart = 1
+
+        if regionend > chr_length:
+
+            regionend = chr_length
+
+        # resizeregion = chromosome + ":" + str(startsite) + "-" + str(endsite)
+
+
+        if jobtype == 'nhpaired':
+
+            regioncount = nhpairedmidsitecounter(bamfile=bamfile, regionchromosome=regionchromosome,
+                                                 regionstart=regionstart, regionend=regionend,
+                                                 maxinsert=maxinsert)
+
+        elif jobtype == 'nhsingle':
+
+            regioncount = nhsinglemidsitecounter(bamfile=bamfile, regionchromosome=regionchromosome,
+                                                 regionstart=regionstart, regionend=regionend,
+                                                 maxinsert=maxinsert)
+
+        else:
+
+            print ("%s count type error!!!!" % jobtype)
+
+            sys.exit(1)
+
+        halfwindow = int(windowsize/2)
+
+        midsite = regionstart
+
+        while midsite <= regionend:
+
+            windowcount = 0
+
+            for i in range(0-halfwindow, halfwindow):
+
+                nowsite = midsite + i
+
+                if nowsite in regioncount:
+
+                    nowcount = regioncount[nowsite]
+
+                    windowcount = windowcount + nowcount
+
+            window_count[midsite] = windowcount
+
+            midsite = midsite + 1
+
+        return window_count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def windowcounter(bamfile, regionchromosome, regionstart, regionend, maxinsert, jobtype):
+
+    try:
+
+        if jobtype == 'nhpaired':
+
+            count = nhpairedwindowcounter(bamfile, regionchromosome, regionstart, regionend, maxinsert)
+
+        elif jobtype == 'nhsingle':
+
+            count = nhsinglewindowcounter(bamfile, regionchromosome, regionstart, regionend, maxinsert)
+
+        else:
+
+            print ("%s count type error!!!!" % jobtype)
+
+            sys.exit(1)
+
+        return count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def depthcount(bamfile, regionchromosome, regionstart, regionend, maxinsert, jobtype):
+
+    try:
+
+        if jobtype == 'nhpaired':
+
+            count = nhpaireddepthcount(bamfile, regionchromosome, regionstart, regionend, maxinsert)
+
+        elif jobtype == 'nhsingle':
+
+            count = nhsingledepthcount(bamfile, regionchromosome, regionstart, regionend, maxinsert)
+
+        else:
+
+            print ("%s count type error!!!!" % jobtype)
+
+            sys.exit(1)
+
+        return count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def extenddepthcount(bamfile, regionchromosome, regionstart, regionend, maxinsert, jobtype, readlengthmean):
+
+    try:
+
+        if jobtype == 'nhpaired':
+
+            count = nhpairedextenddepthcount(bamfile, regionchromosome, regionstart, regionend, maxinsert, readlengthmean)
+
+        elif jobtype == 'nhsingle':
+
+            count = nhsingleextenddepthcount(bamfile, regionchromosome, regionstart, regionend, maxinsert,readlengthmean)
+
+        else:
+
+            print ("%s count type error!!!!" % jobtype)
+
+            sys.exit(1)
+
+        return count
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()

@@ -1,0 +1,576 @@
+
+
+from multiprocessing import Pool
+from .region import *
+from numpy import *
+from .kernel import *
+from .readscounter import *
+import sys
+from .Hotspot import *
+from .bgcount import *
+
+class KeyboardInterruptError(Exception):
+    pass
+
+
+def hotspotscount_nocontrol(bamfile, threshold, kernellength,
+                    windowsize, nthreads, minlength, jobtype,
+                    fregion, samplename, countchr=[], maxinsert=1000000):
+    """
+        hotspots[hid][type]
+        
+    """
+    hotspots = list()
+
+    for chromosome in countchr:
+
+        print ("start to count %s" % chromosome)
+
+        ################# calculate cutoff
+
+        if jobtype == 'nhsingle':
+
+            uniqueratio = nhuniquerate(bamfile=bamfile, fregion=fregion, chromosome=chromosome, paired=False, maxinsert=maxinsert)
+
+            print (chromosome,"uniqereatio",uniqueratio)
+
+            cutoff = nhnoncontrol(uniqueratio=uniqueratio, threshold=threshold, kernellength=kernellength, nthreads=nthreads)
+
+        elif jobtype == 'nhpaired':
+
+            uniqueratio = nhuniquerate(bamfile=bamfile, fregion=fregion, chromosome=chromosome, paired=True, maxinsert=maxinsert)
+
+            cutoff = nhnoncontrol(uniqueratio=uniqueratio, threshold=threshold, kernellength=kernellength, nthreads=nthreads)
+
+        elif jobtype == 'dh':
+
+            uniqueratio = dhuniquerate(bamfile=bamfile, chromosome=chromosome)
+
+            cutoff = dhnoncontrol(uniqueratio=uniqueratio, threshold=threshold, kernellength=kernellength, nthreads=nthreads)
+
+        else:
+
+            print ("%s count type error!!!!" % jobtype)
+
+            sys.exit(1)
+
+        print ("cutoff is %s" % cutoff)
+
+        ###################
+
+        if chromosome in fregion.chrsfcount:
+
+            frcount = int(fregion.chrsfcount[chromosome])
+
+        else:
+
+            frcount = 0
+
+        ultr = ultratio(chrlength=fregion.chrs_length[chromosome], uniqueratio=uniqueratio,
+                       chrtotalreads=fregion.chr_total_reads[chromosome],frcount=frcount)
+
+        chrlength = fregion.chrs_length[chromosome]
+
+        chrhostspots = chrhotspotscount_nocontrol(bamfile, chromosome, ultr, cutoff,
+                   kernellength, windowsize, nthreads, minlength, jobtype, chrlength, maxinsert)
+
+        # nowtype
+
+        idnumber = 1
+
+        for hotspotsnow in chrhostspots:
+
+            start_site = hotspotsnow['start_site']
+
+            end_site = hotspotsnow['end_site']
+
+            idnumber = idnumber + 1
+
+            hotspotid = chromosome + '.' + samplename +str(idnumber)
+
+            if jobtype == 'nhsingle':
+
+                hotspot = NHH(start=start_site, end=end_site, chromosome=chromosome,
+                              hotspotid=hotspotid, jobtype=jobtype)
+
+            elif jobtype == 'nhpaired':
+
+                hotspot = NHH(start=start_site, end=end_site, chromosome=chromosome,
+                              hotspotid=hotspotid, jobtype=jobtype)
+
+            elif jobtype == 'dh':
+
+                hotspot = DHH(start=start_site, end=end_site, chromosome=chromosome,
+                              hotspotid=hotspotid, jobtype=jobtype)
+
+            else:
+
+                print ("%s count type error!!!!" % jobtype)
+
+                sys.exit(1)
+
+            # print (hotspot.hotspotid,hotspot.chromosome) ####
+
+            hotspots.append(hotspot)
+
+    return hotspots
+
+
+def chrhotspotscount_nocontrol(bamfile, chromosome, ultratio, cutoff,
+                   kernellength, windowsize, nthreads, minlength, jobtype,chrlength,maxinsert):
+    """
+    
+        jobtype = 'dh', 'nhsingle', 'nhpaired'
+    
+    """
+    ercr = effectregion(chrlength=chrlength, windowsize=windowsize, bw= kernellength)
+    
+    pars = list()
+    
+    for scare in ercr:
+
+        par = dict()
+
+        ctstart = ercr[scare]['ctstart']
+
+        ctend = ercr[scare]['ctend']
+
+        # print (chromosome,scare, ercr[scare]['ctstart'],ercr[scare]['ctend'],ercr[scare]['efstart'],ercr[scare]['efend'])
+
+        par['ultratio'] = ultratio
+
+        par['chromosome'] = chromosome
+
+        par['regionstart']= ctstart
+
+        par['regionend']= ctend
+
+        par['kernellength']= kernellength
+
+        par['bamfile'] = bamfile
+
+        par['scare'] = scare
+
+        par['cutoff'] = cutoff
+
+        par['jobtype'] = jobtype
+
+        par['maxinsert'] = maxinsert
+
+        pars.append(par)
+
+    pool=Pool(nthreads)
+    
+    chrhotspots = dict()
+    
+    try:
+        
+        hotsports_point = pool.map(hostspotspointcounter_nocontrol, pars)
+        
+        for hotspots_scare in hotsports_point:
+            
+            for nowsite in hotspots_scare:
+                
+                if not nowsite in chrhotspots:
+                    
+                    if (nowsite >= 0 and nowsite<chrlength):
+
+                        chrhotspots[nowsite] = 1
+                        
+        pool.close()
+        
+        del hotsports_point
+
+        hotspots_list=list(chrhotspots.keys())
+
+        chrhotsopts_region = continueregion(points=hotspots_list, minlength=minlength)
+        
+        return chrhotsopts_region
+        
+    except KeyboardInterrupt:
+
+        pool.terminate()
+
+        print ("You cancelled the program!")
+
+        sys.exit(1)
+
+    except Exception as e:
+
+        print ('got exception: %r, terminating the pool' % (e,))
+
+        pool.terminate()
+
+        print ('pool is terminated')
+
+    finally:
+    #     print ('joining pool processes')
+        pool.join()
+        # print ('join complete')
+        
+
+def hostspotspointcounter_nocontrol(par):
+
+    try:
+
+        #ctstart = ercr[scare]['ctstart']
+        #ctend = ercr[scare]['ctend']
+
+        ultratio = par['ultratio']
+
+        chromosome = par['chromosome']
+
+        regionstart = par['regionstart']
+
+        regionend = par['regionend']
+
+        kernellength = par['kernellength']
+
+        bamfile = par['bamfile']
+
+        scare = par['scare']
+
+        cutoff = par['cutoff']
+
+        jobtype = par['jobtype']
+
+        maxinsert = par['maxinsert']
+
+        ###get par
+
+        kernel = smooth_kernel(kernellength)
+        
+        samfile = pysam.Samfile(bamfile)
+        
+        countregion = chromosome + ':' + str(regionstart) + '-' + str(regionend)
+        
+        hotsopts_scare = list()
+        
+        reads_score = dict()
+        
+        if jobtype == 'nhsingle':
+
+            reads_score = nhreadsnormailzed(bamfile = bamfile, region=countregion, paired = False, ultratio=ultratio, maxinsert=maxinsert)
+
+        elif jobtype == 'nhpaired':
+
+            reads_score = nhreadsnormailzed(bamfile = bamfile, region=countregion, paired = True, ultratio=ultratio, maxinsert=maxinsert)
+
+        elif jobtype == 'dh':
+
+            reads_score = dhreadsnormailzed(bamfile = bamfile, region = countregion, ultratio = ultratio)
+
+        else:
+
+            print ("%s count type error!!!!" % jobtype)
+
+            sys.exit(1)
+
+        kernel_score = list()
+
+        for i in sorted(kernel):
+
+            kernel_score.append(kernel[i])
+
+        readsscore_list = list()
+        # print (countregion,regionstart, regionend) ###
+        for n in range(regionstart, regionend):
+
+            nowscore = 0
+
+            if n in reads_score:
+
+                nowscore = reads_score[n]
+
+            readsscore_list.append(nowscore)
+
+        smoothed_result = correlate(array(readsscore_list), kernel_score, "same")
+        
+        for i in range(0, smoothed_result.size):
+
+            if smoothed_result[i] > cutoff:
+
+                now_site = i + regionstart
+
+                hotsopts_scare.append(now_site)
+    
+        return hotsopts_scare   
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()
+
+
+def hotsportscount_control(bamfile, controlfile, threshold, kernellength,
+                    windowsize, nthreads, minlength, jobtype, controlfregion,
+                    datafregion, samplename, countchr=[], maxinsert=1000000):
+
+    hotspots = list()
+
+    for chromosome in countchr:
+
+        chrhostspots = chrhotspotscount_control(bamfile, controlfile, chromosome, controlfregion, datafregion, threshold,
+                   kernellength, windowsize, nthreads, minlength, jobtype, maxinsert)
+
+        idnumber = 1
+
+        for hotspotsnow in chrhostspots:
+
+            start_site = hotspotsnow['start_site']
+
+            end_site = hotspotsnow['end_site']
+
+            idnumber = idnumber + 1
+
+            hotspotid = chromosome + '.' + samplename +str(idnumber)
+
+            if jobtype == 'nhsingle':
+
+                hotspot = NHH(start=start_site, end=end_site, chromosome=chromosome,
+                              hotspotid=hotspotid, jobtype=jobtype)
+
+            elif jobtype == 'nhpaired':
+
+                hotspot = NHH(start=start_site, end=end_site, chromosome=chromosome,
+                              hotspotid=hotspotid, jobtype=jobtype)
+
+            elif jobtype == 'dh':
+
+                hotspot = DHH(start=start_site, end=end_site, chromosome=chromosome,
+                              hotspotid=hotspotid, jobtype=jobtype)
+
+            else:
+
+                print ("%s count type error!!!!" % jobtype)
+
+                sys.exit(1)
+
+            hotspots.append(hotspot)
+
+    return hotspots
+
+
+def chrhotspotscount_control(bamfile, controlfile, chromosome, controlfregion, datafregion, threshold,
+                   kernellength, windowsize, nthreads, minlength, jobtype, maxinsert):
+    """
+
+        jobtype = 'dh', 'nhsingle', 'nhpaired'
+
+    """
+    datachrlength = datafregion.chrs_length[chromosome]
+
+    controlchrlength = controlfregion.chrs_length[chromosome]
+
+    datachrtotalreads = datafregion.chr_total_reads[chromosome]
+
+    controlchrtotalreads = controlfregion.chr_total_reads[chromosome]
+
+    readsratio = datachrtotalreads/controlchrtotalreads
+
+    if not datachrlength == controlchrlength:
+        print ("chrlength error, datachrlength, controlchrlength", datachrlength, controlchrlength)
+
+    ercr = effectregion(chrlength=controlchrlength, windowsize=windowsize, bw= kernellength)
+
+    pars = list()
+
+    for scare in ercr:
+
+        par = dict()
+
+        ctstart = ercr[scare]['ctstart']
+
+        ctend = ercr[scare]['ctend']
+
+        # par['datautl'] = datautl
+        #
+        # par['controlutl'] = controlutl
+
+        par['readsratio'] = readsratio
+
+        par['controlfile'] = controlfile
+
+        par['chromosome'] = chromosome
+
+        par['regionstart']= ctstart
+
+        par['regionend']= ctend
+
+        par['kernellength']= kernellength
+
+        par['bamfile'] = bamfile
+
+        par['scare'] = scare
+
+        par['threshold'] = threshold
+
+        par['jobtype'] = jobtype
+
+        par['maxinsert'] = maxinsert
+
+        pars.append(par)
+
+    pool=Pool(nthreads)
+
+    chrhotspots = dict()
+
+    try:
+
+        hotsports_point = pool.map(hostspotspointcounter_control, pars)
+
+        for hotspots_scare in hotsports_point:
+
+            for nowsite in hotspots_scare:
+
+                if not nowsite in chrhotspots:
+
+                    if (nowsite >= 0 and nowsite<datachrlength):
+
+                        chrhotspots[nowsite] = 1
+
+        pool.close()
+
+        del hotsports_point
+
+        hotspots_list = list(chrhotspots.keys())
+
+        chrhotsopts_region = continueregion(points=hotspots_list, minlength=minlength)
+
+        return chrhotsopts_region
+
+    except KeyboardInterrupt:
+
+        pool.terminate()
+
+        print ("You cancelled the program!")
+
+        sys.exit(1)
+
+    except Exception as e:
+
+        print ('got exception: %r, terminating the pool' % (e,))
+
+        pool.terminate()
+
+        print ('pool is terminated')
+
+    finally:
+    #     print ('joining pool processes')
+        pool.join()
+        # print ('join complete')
+
+
+def hostspotspointcounter_control(par):
+
+    try:
+
+        #ctstart = ercr[scare]['ctstart']
+        #ctend = ercr[scare]['ctend']
+        controlfile = par['controlfile']
+
+        # datautl = par['datautl']
+        #
+        # controlutl = par['controlutl']
+
+        #readsratio = data/control
+        readsratio = par['readsratio']
+
+        chromosome = par['chromosome']
+
+        regionstart = par['regionstart']
+
+        regionend = par['regionend']
+
+        kernellength = par['kernellength']
+
+        bamfile = par['bamfile']
+
+        scare = par['scare']
+
+        threshold = par['threshold']
+
+        jobtype = par['jobtype']
+
+        maxinsert = par['maxinsert']
+
+        ###get par
+
+        kernel = smooth_kernel(kernellength)
+
+        # samfile = pysam.Samfile(bamfile)
+
+        countregion = chromosome + ':' + str(regionstart) + '-' + str(regionend)
+
+        hotsopts_scare=list()
+
+        data_score = dict()
+
+        control_score = dict()
+
+        if jobtype == 'nhsingle':
+
+            data_score = nhreadscounter(bamfile=bamfile, region=countregion, paired=False,  maxinsert=maxinsert)
+            control_score = nhreadscounter(bamfile=controlfile, region=countregion, paired=False,  maxinsert=maxinsert)
+
+        elif jobtype == 'nhpaired':
+
+            data_score = nhreadscounter(bamfile=bamfile, region=countregion, paired=True,  maxinsert=maxinsert)
+            control_score = nhreadscounter(bamfile=controlfile, region=countregion, paired=True,  maxinsert=maxinsert)
+
+        elif jobtype == 'dh':
+
+            data_score = dhreadscounter(bamfile=bamfile, region=countregion)
+            control_score = dhreadscounter(bamfile=controlfile, region=countregion)
+
+        else:
+
+            print ("%s count type error!!!!" % jobtype)
+
+            sys.exit(1)
+        #
+        kernel_score = list()
+
+        for i in sorted(kernel):
+
+            kernel_score.append(kernel[i])
+
+        datascore_list = list()
+
+        controlscore_list = list()
+
+        # # print (countregion,regionstart, regionend) ###
+        for n in range(regionstart, regionend):
+
+            nowcontrol = 0
+
+            nowdata = 0
+
+            if n in data_score:
+
+                nowdata = data_score[n]
+
+            if n in control_score:
+
+                nowcontrol = control_score[n]
+
+            datascore_list.append(nowdata)
+
+            controlscore_list.append(nowcontrol)
+
+        smoothed_data = correlate(array(datascore_list), kernel_score, "same")
+
+        smoothed_control = correlate(array(controlscore_list), kernel_score, "same")
+
+        for i in range(0, smoothed_data.size):
+
+            if (smoothed_data[i]/readsratio) > (smoothed_control[i]*threshold):
+
+                now_site = i + regionstart
+
+                hotsopts_scare.append(now_site)
+
+        return hotsopts_scare
+
+    except KeyboardInterrupt:
+
+        raise KeyboardInterruptError()

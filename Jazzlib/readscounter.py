@@ -1,0 +1,589 @@
+
+
+import pysam
+
+
+def dhreadscounter(bamfile,region):
+
+    samfile = pysam.Samfile(bamfile)
+
+    readscount = dict()
+
+    for aligned_read in samfile.fetch(region=region):
+
+        if aligned_read.is_reverse:
+
+            site = aligned_read.aend
+
+        else:
+
+            site = aligned_read.pos
+
+        if site in readscount:
+
+            readscount[site] = readscount[site] + 1
+
+        else:
+
+            readscount[site] = 1
+
+    return readscount
+
+
+def nhsinglecuttingsitescounter(bamfile, region):
+
+    samfile = pysam.Samfile(bamfile)
+
+    cuttingsitecount = dict()
+
+    cuttingsitecount['+'] = dict()
+
+    cuttingsitecount['-'] = dict()
+
+    for aligned_read in samfile.fetch(region=region):
+
+        fsite = aligned_read.pos
+
+        rsite = aligned_read.aend
+
+        if fsite in cuttingsitecount['+']:
+
+            cuttingsitecount['+'][fsite] = cuttingsitecount['+'][fsite] + 1
+
+        else:
+
+            cuttingsitecount['+'][fsite] = 1
+
+        if rsite in cuttingsitecount['-']:
+
+            cuttingsitecount['-'][rsite] = cuttingsitecount['-'][rsite] + 1
+
+        else:
+
+            cuttingsitecount['-'][rsite] = 1
+
+
+def nhpairedcuttingsitescounter(bamfile, region, maxinsert):
+
+    samfile = pysam.Samfile(bamfile)
+
+    cuttingsitecount = dict()
+
+    cuttingsitecount['+'] = dict()
+
+    cuttingsitecount['-'] = dict()
+
+    for aligened_read in samfile.fetch(region = region):
+
+        if aligened_read.is_proper_pair:
+
+            if not aligened_read.isize > maxinsert:
+
+                if not aligened_read.is_reverse:
+
+                    fsite = aligened_read.pos
+
+                    #pair_end = pair_start + aligened_read.isize - 1
+
+                    rsite = fsite + aligened_read.isize
+
+                if fsite in cuttingsitecount['+']:
+
+                    cuttingsitecount['+'][fsite] = cuttingsitecount['+'][fsite] + 1
+
+                else:
+
+                    cuttingsitecount['+'][fsite] = 1
+
+                if rsite in cuttingsitecount['-']:
+
+                    cuttingsitecount['-'][rsite] = cuttingsitecount['-'][rsite] + 1
+
+                else:
+
+                    cuttingsitecount['-'][rsite] = 1
+
+
+
+def nhreadscounter(bamfile, region, paired, maxinsert):
+
+    samfile = pysam.Samfile(bamfile)
+
+    #reads_count = dict()
+
+    middle_dist = dict()
+
+    if paired:
+
+        for aligened_read in samfile.fetch(region = region):
+
+            middle1 = 0
+
+            middle2 = 0
+
+            if aligened_read.is_proper_pair:
+
+                if not aligened_read.is_reverse:
+
+                    pair_start = aligened_read.pos
+
+                    #pair_end = pair_start + aligened_read.isize - 1
+
+                    if aligened_read.isize > maxinsert:
+                        continue
+
+                    if aligened_read.isize % 2 == 0:
+
+                        middle1 = pair_start + aligened_read.isize / 2
+
+                        middle2 = pair_start + aligened_read.isize / 2 - 1
+
+                    else:
+
+                        middle1 = pair_start + int(aligened_read.isize / 2)
+
+                        middle2 = pair_start + int(aligened_read.isize / 2)
+
+            middle1 = int(middle1)
+
+            middle2 = int(middle2)
+
+            if middle1 in middle_dist:
+
+                middle_dist[middle1] = middle_dist[middle1] + 1
+
+            else:
+
+                middle_dist[middle1] = 1
+
+            if middle2 in middle_dist:
+
+                middle_dist[middle2] = middle_dist[middle2] + 1
+
+            else:
+
+                middle_dist[middle2] = 1
+
+    else:
+
+        for aligened_read in samfile.fetch(region = region):
+
+            middle1 = 0
+
+            middle2 = 0
+
+            if aligened_read.alen % 2 == 0:
+
+                middle1 = aligened_read.pos + aligened_read.alen / 2
+
+                middle2 = aligened_read.pos + aligened_read.alen / 2 + 1
+
+            else:
+
+                middle1 = aligened_read.pos + int(aligened_read.alen / 2)
+
+                middle2 = aligened_read.pos + int(aligened_read.alen / 2)
+
+
+            middle1 = int(middle1)
+
+            middle2 = int(middle2)
+
+            if middle1 in middle_dist:
+
+                middle_dist[middle1] = middle_dist[middle1] + 1
+
+            else:
+
+                middle_dist[middle1] = 1
+
+            if middle2 in middle_dist:
+
+                middle_dist[middle2] = middle_dist[middle2] + 1
+
+            else:
+
+                middle_dist[middle2] = 1
+
+    return middle_dist
+
+
+def dhreadsnormailzed(bamfile, region, ultratio):
+
+    samfile = pysam.Samfile(bamfile)
+
+    readscount = dict()
+
+    for aligned_read in samfile.fetch(region = region):
+
+        if aligned_read.is_reverse:
+
+            site = aligned_read.aend
+
+        else:
+
+            site = aligned_read.pos
+
+        if site in readscount:
+
+            readscount[site] = readscount[site] + ultratio
+
+        else:
+
+            readscount[site] = ultratio
+
+    return readscount
+
+
+def nhreadsnormailzed(bamfile, region, paired, ultratio, maxinsert):
+
+    #paired is boolen value, if paired-end paired == True
+
+    samfile = pysam.Samfile(bamfile)
+
+    #reads_count = dict()
+
+    middle_dist = dict()
+
+    #start = 0
+    #
+    #end = 0
+
+
+
+    if paired:
+
+        for aligened_read in samfile.fetch(region = region):
+
+            middle1 = 0
+
+            middle2 = 0
+
+            if aligened_read.is_proper_pair:
+
+                if not aligened_read.is_reverse:
+
+                    pair_start = aligened_read.pos
+
+                    #pair_end = pair_start + aligened_read.isize - 1
+                    if aligened_read.isize > maxinsert:
+                        continue
+
+                    if aligened_read.isize % 2 == 0:
+
+                        middle1 = pair_start + aligened_read.isize / 2
+
+                        middle2 = pair_start + aligened_read.isize / 2 - 1
+
+                    else:
+
+                        middle1 = pair_start + int(aligened_read.isize / 2)
+
+                        middle2 = pair_start + int(aligened_read.isize / 2)
+
+                    middle1 = int(middle1)
+
+                    middle2 = int(middle2)
+
+                    if middle1 in middle_dist:
+
+                        middle_dist[middle1] = middle_dist[middle1] + ultratio
+
+                    else:
+
+                        middle_dist[middle1] = ultratio
+
+                    if middle2 in middle_dist:
+
+                        middle_dist[middle2] = middle_dist[middle2] + ultratio
+
+                    else:
+
+                        middle_dist[middle2] = ultratio
+
+    else:
+
+        for aligened_read in samfile.fetch(region = region):
+
+            if aligened_read.alen % 2 == 0:
+
+                middle1 = aligened_read.pos + aligened_read.alen / 2
+
+                middle2 = aligened_read.pos + aligened_read.alen / 2 + 1
+
+            else:
+
+                middle1 = aligened_read.pos + int(aligened_read.alen / 2)
+
+                middle2 = aligened_read.pos + int(aligened_read.alen / 2)
+
+
+            middle1 = int(middle1)
+
+            middle2 = int(middle2)
+
+            if middle1 in middle_dist:
+
+                middle_dist[middle1] = middle_dist[middle1] + ultratio
+
+            else:
+
+                middle_dist[middle1] = ultratio
+
+            if middle2 in middle_dist:
+
+                middle_dist[middle2] = middle_dist[middle2] + ultratio
+
+            else:
+
+                middle_dist[middle2] = ultratio
+
+
+    return middle_dist
+
+
+def dhreadscarecounter(bamfile,region,scare):
+
+    samfile = pysam.Samfile(bamfile)
+
+    readscount = dict()
+
+    for aligned_read in samfile.fetch(region = region):
+
+        if aligned_read.is_reverse:
+
+            site = int(aligned_read.aend/scare)
+
+        else:
+
+            site = int(aligned_read.pos/scare)
+
+        if site in readscount:
+
+            readscount[site] = readscount[site] + 1
+
+        else:
+
+            readscount[site] = 1
+
+    return readscount
+
+
+def nhreadscarecounter(bamfile, region, paired, scare, maxinsert):
+
+    samfile = pysam.Samfile(bamfile)
+
+    #reads_count = dict()
+
+    middle_dist = dict()
+
+    #start = 0
+    #
+    #end = 0
+
+
+
+    if paired:
+
+        for aligened_read in samfile.fetch(region = region):
+
+            if aligened_read.is_proper_pair:
+
+                middle1 = 0
+
+                middle2 = 0
+
+                if not aligened_read.is_reverse:
+
+                    pair_start = aligened_read.pos
+
+                    #pair_end = pair_start + aligened_read.isize - 1
+                    if aligened_read.isize > maxinsert:
+                        continue
+
+                    if aligened_read.isize % 2 == 0:
+
+                        middle1 = pair_start + aligened_read.isize / 2
+
+                        middle2 = pair_start + aligened_read.isize / 2 - 1
+
+                    else:
+
+                        middle1 = pair_start + int(aligened_read.isize / 2)
+
+                        middle2 = pair_start + int(aligened_read.isize / 2)
+
+                middle1 = int(middle1/scare)
+
+                middle2 = int(middle2/scare)
+
+                if middle1 in middle_dist:
+
+                    middle_dist[middle1] = middle_dist[middle1] + 1
+
+                else:
+
+                    middle_dist[middle1] = 1
+
+                if middle2 in middle_dist:
+
+                    middle_dist[middle2] = middle_dist[middle2] + 1
+
+                else:
+
+                    middle_dist[middle2] = 1
+
+    else:
+
+        for aligened_read in samfile.fetch(region = region):
+
+            middle1 = 0
+
+            middle2 = 0
+
+            if aligened_read.alen % 2 == 0:
+
+                middle1 = aligened_read.pos + aligened_read.alen / 2
+
+                middle2 = aligened_read.pos + aligened_read.alen / 2 + 1
+
+            else:
+
+                middle1 = aligened_read.pos + int(aligened_read.alen / 2)
+
+                middle2 = aligened_read.pos + int(aligened_read.alen / 2)
+
+
+            middle1 = int(middle1/scare)
+
+            middle2 = int(middle2/scare)
+
+            if middle1 in middle_dist:
+
+                middle_dist[middle1] = middle_dist[middle1] + 1
+
+            else:
+
+                middle_dist[middle1] = 1
+
+            if middle2 in middle_dist:
+
+                middle_dist[middle2] = middle_dist[middle2] + 1
+
+            else:
+
+                middle_dist[middle2] = 1
+
+    return middle_dist
+
+
+
+####test only 2014.04.25
+def nhreadscounterdifinsert(bamfile, region, paired, maxinsert):
+
+    samfile = pysam.Samfile(bamfile)
+
+    #reads_count = dict()
+
+    middle_dist = dict()
+
+    for insertlen in range(1,maxinsert+1,1):
+
+        middle_dist[insertlen] = dict()
+
+    if paired:
+
+        for aligened_read in samfile.fetch(region = region):
+
+            middle1 = 0
+
+            middle2 = 0
+
+            if aligened_read.is_proper_pair:
+
+                if not aligened_read.is_reverse:
+
+                    pair_start = aligened_read.pos
+
+                    #pair_end = pair_start + aligened_read.isize - 1
+
+                    if aligened_read.isize > maxinsert:
+
+                        continue
+
+                    if aligened_read.isize % 2 == 0:
+
+                        middle1 = pair_start + aligened_read.isize / 2
+
+                        middle2 = pair_start + aligened_read.isize / 2 - 1
+
+                    else:
+
+                        middle1 = pair_start + int(aligened_read.isize / 2)
+
+                        middle2 = pair_start + int(aligened_read.isize / 2)
+
+                    middle1 = int(middle1)
+
+                    middle2 = int(middle2)
+
+                    if middle1 in middle_dist[aligened_read.isize]:
+
+                        middle_dist[aligened_read.isize][middle1] = middle_dist[aligened_read.isize][middle1] + 1
+
+                    else:
+
+                        middle_dist[aligened_read.isize][middle1] = 1
+
+                    if middle2 in middle_dist[aligened_read.isize]:
+
+                        middle_dist[aligened_read.isize][middle2] = middle_dist[aligened_read.isize][middle2] + 1
+
+                    else:
+
+                        middle_dist[aligened_read.isize][middle2] = 1
+
+    else:
+
+        for aligened_read in samfile.fetch(region = region):
+
+            middle1 = 0
+
+            middle2 = 0
+
+            if aligened_read.alen % 2 == 0:
+
+                middle1 = aligened_read.pos + aligened_read.alen / 2
+
+                middle2 = aligened_read.pos + aligened_read.alen / 2 + 1
+
+            else:
+
+                middle1 = aligened_read.pos + int(aligened_read.alen / 2)
+
+                middle2 = aligened_read.pos + int(aligened_read.alen / 2)
+
+
+            middle1 = int(middle1)
+
+            middle2 = int(middle2)
+
+            if middle1 in middle_dist[aligened_read.alen]:
+
+                middle_dist[aligened_read.alen][middle1] = middle_dist[aligened_read.alen][middle1] + 1
+
+            else:
+
+                middle_dist[aligened_read.alen][middle1] = 1
+
+            if middle2 in middle_dist[aligened_read.alen]:
+
+                middle_dist[aligened_read.alen][middle2] = middle_dist[aligened_read.alen][middle2] + 1
+
+            else:
+
+                middle_dist[aligened_read.alen][middle2] = 1
+
+        pass
+
+    return middle_dist

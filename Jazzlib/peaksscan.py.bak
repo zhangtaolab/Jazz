@@ -1,0 +1,541 @@
+from __future__ import division
+from countreads import *
+from cEM_zip import *
+from FRegion import *
+from multiprocessing import Pool
+from Peak import *
+from sta import *
+from region import *
+from Hotspot import *
+
+
+class KeyboardInterruptError(Exception):
+
+    pass
+
+
+def peakscan_without_control(datafile, maxinsert, bayesfactorthreshold, nthreads, fregion,
+                             jobtype, hotspots, gloablumbda):
+
+    pool = Pool(nthreads)
+
+    try:
+
+        pars = list()
+
+        for hotspot in hotspots:
+
+            par = dict()
+
+            par['hotspot'] = hotspot
+
+            par['datafile'] = datafile
+
+            par['maxinsert'] = maxinsert
+
+            par['bayesfactorthreashold'] = bayesfactorthreshold
+
+            par['jobtype'] = jobtype
+
+            par['gloablumbda'] = gloablumbda
+
+            par['ratio'] = 1
+
+            par['fregion'] = fregion
+
+            pars.append(par)
+
+        peaksinthreads = pool.map(peakscan_withoutcontrol_worker, pars)
+
+        peaks = list()
+
+        for hotspotnow in peaksinthreads:
+
+            for peaknow in hotspotnow:
+
+                print (peaknow.peakid)
+
+                peaks.append(peaknow)
+
+        pool.close()
+
+        return peaks
+
+    except KeyboardInterrupt:
+
+        pool.terminate()
+
+        print ("You cancelled the program!")
+
+        sys.exit(1)
+
+    except Exception, e:
+
+        print ('got exception in Jazzlib.peaksscan.peakscan_without_control: %r, terminating the pool' % (e,))
+
+        pool.terminate()
+
+        print ('pool is terminated')
+
+    finally:
+        #     print ('joining pool processes')
+        pool.join()
+            # print ('join complete')
+
+
+def peakscan_withoutcontrol_worker(par):
+
+    try:
+        peaks = list()
+
+        hotspot = par['hotspot']
+
+        datafile = par['datafile']
+
+        maxinsert = par['maxinsert']
+
+        bayesfactorthreshold = par['bayesfactorthreashold']
+
+        jobtype = par['jobtype']
+
+        gloablumbda = par['gloablumbda']
+
+        ratio = par['ratio']
+
+        fregion = par['fregion']
+
+        start = hotspot.start
+
+        end = hotspot.end
+
+        chromosome = hotspot.chromosome
+
+        chrlength = fregion.chrs_length[chromosome]
+
+        regionstart = start - 5100
+
+        regionend = end + 5100
+
+        if regionstart < 1:
+
+            regionstart = 1
+
+        if regionend > chrlength:
+
+            regionend = chrlength
+
+        datacount = depthcount(bamfile=datafile, regionchromosome=chromosome, regionstart=regionstart,
+                                regionend=regionend, maxinsert=maxinsert, jobtype=jobtype)
+
+        # datacount = midsitecount(bamfile=datafile, regionchromosome=chromosome, regionstart=regionstart,
+        #                         regionend=regionend, maxinsert=maxinsert, jobtype=jobtype)
+
+        enrichedsite = dict()
+
+        bayesfactorscore = dict()
+
+        inputwindow5k = list()
+
+        inputwindow10k = list()
+
+        for sitenow in range(start-5000,end+5000):
+
+            nowcount = 0
+
+            if sitenow < 0:
+
+                continue
+
+            if sitenow > chrlength:
+
+                continue
+
+            if sitenow in datacount:
+
+                nowcount = datacount[sitenow]
+
+            inputwindow10k.append(nowcount)
+
+        for sitenow in range(start-2500,end+2500):
+
+            nowcount = 0
+
+            if sitenow < 0:
+
+                continue
+
+            if sitenow > chrlength:
+
+                continue
+
+            if sitenow in datacount:
+
+                nowcount = datacount[sitenow]
+
+            inputwindow5k.append(nowcount)
+
+
+        (window5klhat, window5kphat) = cEM_zip(inputwindow5k)
+
+        (window10klhat, window10kphat) = cEM_zip(inputwindow10k)
+
+        maxlhat = max(window5klhat, window10klhat, gloablumbda)
+
+        if maxlhat > 400:
+
+            maxlhat = gloablumbda * 5
+
+        for wsite in range(start-1, end+1):
+
+            if wsite in datacount:
+
+                nowcount = datacount[wsite]
+
+                if nowcount < 2:
+
+                    nowbayesfactor = bayesfactor(locallambda=maxlhat, peakscore=2)
+
+                else:
+
+                    nowbayesfactor = bayesfactor(locallambda=maxlhat, peakscore=nowcount)
+
+                bayesfactorscore[wsite] = nowbayesfactor
+
+                if nowbayesfactor > bayesfactorthreshold:
+
+                    enrichedsite[wsite] = 1
+
+        regionlist = enrichedsite.keys()
+
+        tmppeaks = continueregion(points=regionlist, minlength=1)
+
+        iniid = 1
+
+        for tmppeak in tmppeaks:
+
+            tmppeakstart = tmppeak['start_site']
+
+            tmppeakend = tmppeak['end_site']
+
+            totalbayesscore = 0
+
+            maxscore = 0
+
+            maxsite = 0
+
+            for site in range(tmppeakstart, tmppeakend+1):
+
+                score = bayesfactorscore[site]
+
+                totalbayesscore = totalbayesscore + score
+
+                if score > maxscore:
+
+                    score = maxscore
+
+                    maxsite = site
+
+            avgbayescore = totalbayesscore/(tmppeakend - tmppeakstart + 1)
+
+            peakid = hotspot.hotspotid+'.'+str(iniid)
+
+            peak = Peak(start=tmppeakstart, end=tmppeakend, chromosome=chromosome, peakpoint=maxsite, peakid=peakid,
+                        score=avgbayescore, parent=hotspot.hotspotid)
+
+            iniid= iniid +1
+
+            peaks.append(peak)
+
+        return peaks
+
+    except Exception, e:
+
+        print ('got exception in Jazzlib.peaksscan.peakscan_without_control: %r, terminating the pool' % (e,))
+
+        print (par['hotspot'].chromosome, par['hotspot'].start,par['hotspot'].end)
+
+
+    except KeyboardInterrupt:
+
+        print ("You cancelled the program!")
+
+        sys.exit(1)
+
+
+
+
+def peakscan_control(datafile, maxinsert, bayesfactorthreshold, nthreads, chipfregion,
+                     jobtype, hotspots, gloablumbda, inputfile, ratio, inputfregion):
+
+    pool = Pool(nthreads)
+
+    try:
+
+        pars = list()
+
+        for hotspot in hotspots:
+
+            par = dict()
+
+            par['hotspot'] = hotspot
+
+            par['datafile'] = datafile
+
+            par['maxinsert'] = maxinsert
+
+            par['bayesfactorthreashold'] = bayesfactorthreshold
+
+            par['jobtype'] = jobtype
+
+            par['gloablumbda'] = gloablumbda
+
+            par['ratio'] = ratio
+
+            par['inputfile'] = inputfile
+
+            par['fregion'] = inputfregion
+
+            pars.append(par)
+
+        peaksinthreads = pool.map(peakscan_withoutcontrol_worker, pars)
+
+        peaks = list()
+
+        for hotspotnow in peaksinthreads:
+
+            for peaknow in hotspotnow:
+
+                print (peaknow.peakid)
+
+                peaks.append(peaknow)
+
+        pool.close()
+
+        return peaks
+
+    except KeyboardInterrupt:
+
+        pool.terminate()
+
+        print ("You cancelled the program!")
+
+        sys.exit(1)
+
+    except Exception, e:
+
+        print ('got exception in Jazzlib.peaksscan.peakscan_without_control: %r, terminating the pool' % (e,))
+
+        pool.terminate()
+
+        print ('pool is terminated')
+
+    finally:
+        #     print ('joining pool processes')
+        pool.join()
+            # print ('join complete')
+
+
+def peakscan_control_worker(par):
+
+    try:
+        peaks = list()
+
+        hotspot = par['hotspot']
+
+        datafile = par['datafile']
+
+        inputfile = par['inputfile']
+
+        maxinsert = par['maxinsert']
+
+        bayesfactorthreshold = par['bayesfactorthreashold']
+
+        jobtype = par['jobtype']
+
+        gloablumbda = par['gloablumbda']
+
+        ratio = par['ratio']
+
+        fregion = par['fregion']
+
+        start = hotspot.start
+
+        end = hotspot.end
+
+        chromosome = hotspot.chromosome
+
+        chrlength = fregion.chrs_length[chromosome]
+
+        regionstart = start - 5100
+
+        regionend = end + 5100
+
+        if regionstart < 1:
+
+            regionstart = 1
+
+        if regionend > chrlength:
+
+            regionend = chrlength
+
+        datacount = depthcount(bamfile=datafile, regionchromosome=chromosome, regionstart=regionstart,
+                                regionend=regionend, maxinsert=maxinsert, jobtype=jobtype)
+
+        inputcount = depthcount(bamfile=inputfile, regionchromosome=chromosome, regionstart=regionstart,
+                                regionend=regionend, maxinsert=maxinsert, jobtype=jobtype)
+
+        # datacount = midsitecount(bamfile=datafile, regionchromosome=chromosome, regionstart=regionstart,
+        #                         regionend=regionend, maxinsert=maxinsert, jobtype=jobtype)
+
+        enrichedsite = dict()
+
+        bayesfactorscore = dict()
+
+        inputwindow5k = list()
+
+        inputwindow10k = list()
+
+        inputwindow1k = list()
+
+        for sitenow in range(start-5000,end+5000):
+
+            nowcount = 0
+
+            if sitenow < 0:
+
+                continue
+
+            if sitenow > chrlength:
+
+                continue
+
+            if sitenow in inputcount:
+
+                nowcount = inputcount[sitenow]
+
+            inputwindow10k.append(nowcount)
+
+        for sitenow in range(start-2500,end+2500):
+
+            nowcount = 0
+
+            if sitenow < 0:
+
+                continue
+
+            if sitenow > chrlength:
+
+                continue
+
+            if sitenow in inputcount:
+
+                nowcount = inputcount[sitenow]
+
+            inputwindow5k.append(nowcount)
+
+        for sitenow in range(start-500,end+500):
+
+            nowcount = 0
+
+            if sitenow < 0:
+
+                continue
+
+            if sitenow > chrlength:
+
+                continue
+
+            if sitenow in inputcount:
+
+                nowcount = inputcount[sitenow]
+
+            inputwindow1k.append(nowcount)
+
+
+        (window5klhat, window5kphat) = cEM_zip(inputwindow5k)
+
+        (window10klhat, window10kphat) = cEM_zip(inputwindow10k)
+
+        (window1klhat, window1kphat) = cEM_zip(inputwindow1k)
+
+        maxlhat = max(window5klhat, window10klhat, window1klhat, gloablumbda)
+
+        if maxlhat > 400:
+
+            maxlhat = gloablumbda * 5
+
+        for wsite in range(start-1, end+1):
+
+            if wsite in datacount:
+
+                nowcount = int(datacount[wsite]*ratio)
+
+                if nowcount < 2:
+
+                    nowbayesfactor = bayesfactor(locallambda=maxlhat, peakscore=2)
+
+                else:
+
+                    nowbayesfactor = bayesfactor(locallambda=maxlhat, peakscore=nowcount)
+
+                bayesfactorscore[wsite] = nowbayesfactor
+
+                if nowbayesfactor > bayesfactorthreshold:
+
+                    enrichedsite[wsite] = 1
+
+        regionlist = enrichedsite.keys()
+
+        tmppeaks = continueregion(points=regionlist, minlength=1)
+
+        iniid = 1
+
+        for tmppeak in tmppeaks:
+
+            tmppeakstart = tmppeak['start_site']
+
+            tmppeakend = tmppeak['end_site']
+
+            totalbayesscore = 0
+
+            maxscore = 0
+
+            maxsite = 0
+
+            for site in range(tmppeakstart, tmppeakend+1):
+
+                score = bayesfactorscore[site]
+
+                totalbayesscore = totalbayesscore + score
+
+                if score > maxscore:
+
+                    score = maxscore
+
+                    maxsite = site
+
+            avgbayescore = totalbayesscore/(tmppeakend - tmppeakstart + 1)
+
+            peakid = hotspot.hotspotid+'.'+str(iniid)
+
+            peak = Peak(start=tmppeakstart, end=tmppeakend, chromosome=chromosome, peakpoint=maxsite, peakid=peakid,
+                        score=avgbayescore, parent=hotspot.hotspotid)
+
+            iniid= iniid +1
+
+            peaks.append(peak)
+
+        return peaks
+
+    except Exception, e:
+
+        print ('got exception in Jazzlib.peaksscan.peakscan_without_control: %r, terminating the pool' % (e,))
+
+        print (par['hotspot'].chromosome, par['hotspot'].start,par['hotspot'].end)
+
+
+    except KeyboardInterrupt:
+
+        print ("You cancelled the program!")
+
+        sys.exit(1)
