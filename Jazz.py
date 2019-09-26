@@ -59,6 +59,8 @@ def withcontrol(opt):
 
         ratio = normalize_ratio_input2(fregegion_input=inputfregion, fregion_chip=chipfregion)
 
+        print("###inputfregion.adjreads,inputfregion.readlengthmean,inputfregion.countgenomelength",inputfregion.adjreads , inputfregion.readlengthmean,inputfregion.countgenomelength)
+
         gloablumbda = inputfregion.adjreads * inputfregion.readlengthmean/inputfregion.countgenomelength
 
         windowscare=100000
@@ -109,6 +111,8 @@ def nocontrol(opt):
         samplename = opt.samplename
 
         chipfregion = FRegion(bamfile=datafile, jobtype=jobtype, countchr=count_chr, nthreads=nthreads, maxinsert=maxinsert)
+
+        print("###chipfregion.adjreads * chipfregion.readlengthmean/chipfregion.countgenomelength,", chipfregion.adjreads, chipfregion.readlengthmean,chipfregion.countgenomelength)
 
         gloablumbda = chipfregion.adjreads * chipfregion.readlengthmean/chipfregion.countgenomelength
 

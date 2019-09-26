@@ -192,6 +192,8 @@ def filter_region(bamfile, count_chr, nthreads, maxinsert, jobtype):
 
             nowreadslengthmean = nowchrcount['readlengthmean']
 
+            print(nowchromosome, nowreadslengthmean)
+
             chrreadlengthmean[nowchromosome] = nowreadslengthmean
 
             chruniqlength[nowchromosome] = nowuniqcount
@@ -339,6 +341,9 @@ def chrwindow_counter(par):
         chrwindowcount['uniqcount'] = uniqcount
 
         chrwindowcount['readlengthmean'] = readlengthmean
+
+        # for debug
+        print("in chrwindow_counter", readlengthmean)
 
         return chrwindowcount
 

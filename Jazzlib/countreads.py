@@ -22,7 +22,7 @@ def nhpairedmidsitecounter(bamfile, regionchromosome, regionstart, regionend, ma
 
                 if not aligened_read.is_reverse:
 
-                    if aligened_read.isize <= maxinsert:
+                    if  (aligened_read.isize <= maxinsert) and (aligened_read.isize >0):
 
                         pair_start = aligened_read.pos
 
@@ -82,7 +82,7 @@ def nhpaireduniqcount(bamfile, regionchromosome, regionstart, regionend, maxinse
 
                 if not aligened_read.is_reverse:
 
-                    if aligened_read.isize <= maxinsert:
+                    if  (aligened_read.isize <= maxinsert) and (aligened_read.isize >0):
 
                         pair_start = aligened_read.pos
 
@@ -136,7 +136,10 @@ def nhpairedreadslengthmean(bamfile, regionchromosome, regionstart, regionend, m
 
                 if not aligened_read.is_reverse:
 
-                    if aligened_read.isize <= maxinsert:
+                    if (aligened_read.isize <= maxinsert) and (aligened_read.isize >0):
+
+                        # for debug
+                        #print(aligened_read.isize)
 
                         readslength.append(aligened_read.isize)
 
@@ -163,7 +166,7 @@ def nhpairedwindowscarecounter(bamfile, regionchromosome, regionstart, regionend
 
                 if not aligened_read.is_reverse:
 
-                    if aligened_read.isize <= maxinsert:
+                    if (aligened_read.isize <= maxinsert) and (aligened_read.isize >0):
 
                         pair_start = aligened_read.pos
 
@@ -224,7 +227,7 @@ def nhpairedmidsiteinsersizecounter(bamfile, regionchromosome, regionstart, regi
 
                 if not aligened_read.is_reverse:
 
-                    if aligened_read.isize <= maxinsert:
+                    if (aligened_read.isize <= maxinsert) and (aligened_read.isize >0):
 
                         pair_start = aligened_read.pos
 
@@ -302,7 +305,7 @@ def nhpairedwindowcounter(bamfile, regionchromosome, regionstart, regionend, max
 
                 if not aligened_read.is_reverse:
 
-                    if aligened_read.isize <= maxinsert:
+                    if  (aligened_read.isize <= maxinsert) and (aligened_read.isize >0):
 
                         pair_start = aligened_read.pos
 
@@ -361,7 +364,7 @@ def nhpairedcuttingsitecount(bamfile, regionchromosome, regionstart, regionend, 
 
             if aligened_read.is_proper_pair:
 
-                if aligened_read.isize <= maxinsert:
+                if  (aligened_read.isize <= maxinsert) and (aligened_read.isize >0):
 
                     if not aligened_read.is_reverse:
 
@@ -408,7 +411,7 @@ def nhpaireddepthcount(bamfile, regionchromosome, regionstart, regionend, maxins
 
             if aligened_read.is_proper_pair:
 
-                if aligened_read.isize <= maxinsert:
+                if  (aligened_read.isize <= maxinsert) and (aligened_read.isize >0):
 
                     if not aligened_read.is_reverse:
 
@@ -447,7 +450,7 @@ def nhpairedextenddepthcount(bamfile, regionchromosome, regionstart, regionend, 
 
             if aligened_read.is_proper_pair:
 
-                if aligened_read.isize <= maxinsert:
+                if (aligened_read.isize <= maxinsert) and (aligened_read.isize >0):
 
                     if not aligened_read.is_reverse:
 
