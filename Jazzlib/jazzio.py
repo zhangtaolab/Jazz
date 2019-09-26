@@ -19,7 +19,7 @@ def peakbedswriter(samplename, peaks):
 
         outstring = linker.join(bedlist) + "\n"
 
-        open_bed.write(outstring)
+        open_bed.write(bytes(outstring, encoding = 'utf-8'))
 
     open_bed.close()
 
@@ -39,7 +39,7 @@ def peakbedgraphswriter(samplename, peaks):
 
         outstring = linker.join(bedlist) + "\n"
 
-        open_bed.write(outstring)
+        open_bed.write(bytes(outstring, encoding = 'utf-8'))
 
     open_bed.close()
 
@@ -59,7 +59,7 @@ def hotspotsbedswriter(samplename, hotspots):
 
         outstring = linker.join(bedlist) + "\n"
 
-        open_bed.write(outstring)
+        open_bed.write(bytes(outstring, encoding = 'utf-8'))
 
     open_bed.close()
 
@@ -80,7 +80,7 @@ def hotpeakbedswriter2(samplename, hotspots):
 
             outstring = linker.join(bedlist) + "\n"
 
-            open_bed.write(outstring)
+            open_bed.write(bytes(outstring, encoding = 'utf-8'))
 
     open_bed.close()
 
@@ -142,8 +142,8 @@ def jazzgffout(samplename, hotspots, peaks, fregion):
 
         hotspotstring = linker.join(hotspotsstr) + "\n"
 
-        open_bed.write(hotspotstring)
-
+        # open_bed.write(hotspotstring)
+        open_bed.write(bytes(hotspotstring, encoding='utf-8'))
 
     for peak in peaks:
 
@@ -159,7 +159,8 @@ def jazzgffout(samplename, hotspots, peaks, fregion):
 
         peakstring = linker.join(peakstr)+"\n"
 
-        open_bed.write(peakstring)
+        #open_bed.write(peakstring)
+        open_bed.write(bytes(peakstring, encoding='utf-8'))
 
 
     open_bed.close()
