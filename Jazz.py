@@ -203,11 +203,13 @@ def opt_check(jazzopt):
 
         sys.exit(1)
 
-    dataindexfile = opt.datafile + '.bai'
+    dataindexfile1 = opt.datafile + '.bai'
 
-    if not os.path.isfile (dataindexfile):
+    dataindexfile2 = opt.datafile + '.csi'
 
-        logging.error("Missing bam index file: %s" % dataindexfile)
+    if not (os.path.isfile(dataindexfile1) or os.path.isfile(dataindexfile2)):
+
+        logging.error("Missing bam index file: %s or %s" % (dataindexfile1, dataindexfile2))
 
         sys.exit(1)
 
@@ -219,11 +221,13 @@ def opt_check(jazzopt):
 
             sys.exit(1)
 
-        controlindexfile = opt.controlfile + '.bai'
+        controlindexfile1 = opt.controlfile + '.bai'
 
-        if not os.path.isfile (controlindexfile):
+        controlindexfile2 = opt.controlfile + '.csi'
 
-            logging.error("Missing bam index file: %s" % controlindexfile)
+        if not (os.path.isfile(controlindexfile1) or os.path.isfile(controlindexfile2)):
+
+            logging.error("Missing bam index file: %s or %s" % (controlindexfile1, controlindexfile2))
 
             sys.exit(1)
 
