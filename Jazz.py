@@ -86,13 +86,19 @@ def withcontrol(opt):
                                  nthreads=nthreads,chipfregion=chipfregion, jobtype=jobtype, hotspots=hotspots,
                                  gloablumbda=gloablumbda,inputfile=inputfile,ratio=ratio,inputfregion=inputfregion)
 
-        hotspotsenrich = hotspotsfilter(hotspots=hotspots, peaks=peaks)
+        if opt.hotonly:
 
-        hotspotsbedswriter(hotspots=hotspotsenrich, samplename=samplename)
+            hotspotsbedswriter(hotspots=hotspots, samplename=samplename)
 
-        peakbedswriter(samplename=samplename,peaks=peaks)
+        else:
 
-        jazzgffout(samplename=samplename, hotspots=hotspotsenrich, peaks=peaks, fregion=chipfregion)
+            hotspotsenrich = hotspotsfilter(hotspots=hotspots, peaks=peaks)
+
+            hotspotsbedswriter(hotspots=hotspotsenrich, samplename=samplename)
+
+            peakbedswriter(samplename=samplename,peaks=peaks)
+
+            jazzgffout(samplename=samplename, hotspots=hotspotsenrich, peaks=peaks, fregion=chipfregion)
 
     except KeyboardInterrupt:
 
@@ -151,13 +157,19 @@ def nocontrol(opt):
                                          fregion=chipfregion,jobtype=jobtype,
                                          hotspots=hotspots, gloablumbda=gloablumbda)
 
-        hotspotsenrich = hotspotsfilter(hotspots=hotspots, peaks=peaks)
+        if opt.hotonly:
 
-        hotspotsbedswriter(hotspots=hotspotsenrich, samplename=samplename)
+            hotspotsbedswriter(hotspots=hotspots, samplename=samplename)
 
-        peakbedswriter(samplename=samplename,peaks=peaks)
+        else:
 
-        jazzgffout(samplename=samplename, hotspots=hotspotsenrich, peaks=peaks, fregion=chipfregion)
+            hotspotsenrich = hotspotsfilter(hotspots=hotspots, peaks=peaks)
+
+            hotspotsbedswriter(hotspots=hotspotsenrich, samplename=samplename)
+
+            peakbedswriter(samplename=samplename,peaks=peaks)
+
+            jazzgffout(samplename=samplename, hotspots=hotspotsenrich, peaks=peaks, fregion=chipfregion)
 
     except KeyboardInterrupt:
 
@@ -204,6 +216,8 @@ def get_optparser():
 
     jazzopt.add_option("--genomesize", dest="genomesize", type="int",
                        help="Set genome size", default=False)
+
+    jazzopt.add_option("--hotonly", dest="hotonly", action="store_true", default=False, help="calculate hotsports only.")
 
     return jazzopt
 
