@@ -53,15 +53,26 @@ def withcontrol(opt):
 
         fdr = opt.fdr
 
+
         chipfregion = FRegion(bamfile=datafile, jobtype=jobtype, countchr=count_chr, nthreads=nthreads, maxinsert=maxinsert)
 
         inputfregion = FRegion(bamfile=inputfile, jobtype=jobtype, countchr=count_chr, nthreads=nthreads, maxinsert=maxinsert)
 
         ratio = normalize_ratio_input2(fregegion_input=inputfregion, fregion_chip=chipfregion)
 
-        print("###inputfregion.adjreads,inputfregion.readlengthmean,inputfregion.countgenomelength",inputfregion.adjreads , inputfregion.readlengthmean,inputfregion.countgenomelength)
+        if opt.genomesize:
 
-        gloablumbda = inputfregion.adjreads * inputfregion.readlengthmean/inputfregion.countgenomelength
+            print("###chipfregion.adjreads * chipfregion.readlengthmean/chipfregion.countgenomelength,",
+                  chipfregion.adjreads, chipfregion.readlengthmean, opt.genomesize)
+
+            gloablumbda = chipfregion.adjreads * chipfregion.readlengthmean / opt.genomesize
+
+        else:
+
+            print("###inputfregion.adjreads,inputfregion.readlengthmean,inputfregion.countgenomelength",
+                  inputfregion.adjreads , inputfregion.readlengthmean,inputfregion.countgenomelength)
+
+            gloablumbda = inputfregion.adjreads * inputfregion.readlengthmean/inputfregion.countgenomelength
 
         windowscare=100000
 
@@ -110,11 +121,20 @@ def nocontrol(opt):
 
         samplename = opt.samplename
 
-        chipfregion = FRegion(bamfile=datafile, jobtype=jobtype, countchr=count_chr, nthreads=nthreads, maxinsert=maxinsert)
+        chipfregion = FRegion(bamfile=datafile, jobtype=jobtype, countchr=count_chr, nthreads=nthreads,
+                              maxinsert=maxinsert)
 
-        print("###chipfregion.adjreads * chipfregion.readlengthmean/chipfregion.countgenomelength,", chipfregion.adjreads, chipfregion.readlengthmean,chipfregion.countgenomelength)
+        if opt.genomesize:
 
-        gloablumbda = chipfregion.adjreads * chipfregion.readlengthmean/chipfregion.countgenomelength
+            print("###chipfregion.adjreads * chipfregion.readlengthmean/chipfregion.countgenomelength,", chipfregion.adjreads, chipfregion.readlengthmean,opt.genomesize)
+
+            gloablumbda = chipfregion.adjreads * chipfregion.readlengthmean / opt.genomesize
+
+        else:
+
+            print("###chipfregion.adjreads * chipfregion.readlengthmean/chipfregion.countgenomelength,", chipfregion.adjreads, chipfregion.readlengthmean,chipfregion.countgenomelength)
+
+            gloablumbda = chipfregion.adjreads * chipfregion.readlengthmean/chipfregion.countgenomelength
 
         windowscare=100000
 
@@ -181,6 +201,9 @@ def get_optparser():
     jazzopt.add_option("-m","--maxinsert",dest="maxinsert",type="int",help="when you use paired library, please set the maxinsert size",default=130)
 
     jazzopt.add_option("--pe", dest="pe", action="store_true", help="paired-end reads or single-end reads, default=False (single end)", default=False)
+
+    jazzopt.add_option("--genomesize", dest="genomesize", action="int",
+                       help="Set genome size", default=False)
 
     return jazzopt
 
