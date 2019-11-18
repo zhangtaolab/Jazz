@@ -92,7 +92,7 @@ def withcontrol(opt):
 
         peakbedswriter(samplename=samplename,peaks=peaks)
 
-        jazzgffout(samplename=samplename, hotspots=hotspotsenrich, peaks=peaks, fregion=fregion)
+        jazzgffout(samplename=samplename, hotspots=hotspotsenrich, peaks=peaks, fregion=chipfregion)
 
     except KeyboardInterrupt:
 
