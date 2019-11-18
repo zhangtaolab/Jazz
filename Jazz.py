@@ -202,7 +202,7 @@ def get_optparser():
 
     jazzopt.add_option("--pe", dest="pe", action="store_true", help="paired-end reads or single-end reads, default=False (single end)", default=False)
 
-    jazzopt.add_option("--genomesize", dest="genomesize", action="int",
+    jazzopt.add_option("--genomesize", dest="genomesize", type="int",
                        help="Set genome size", default=False)
 
     return jazzopt
